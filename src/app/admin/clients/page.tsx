@@ -24,12 +24,14 @@ export default async function AdminClientsPage() {
         <div className="space-y-6">
           {(companies ?? []).map((c) => (
             <div key={c.id}>
-              <Link
-                href={`/companies/${c.id}`}
-                className="mb-2 inline-block text-sm font-semibold text-slate-900 hover:text-brand-600"
-              >
-                {c.name}
-              </Link>
+              <div className="mb-2 flex items-center justify-between">
+                <Link href={`/companies/${c.id}`} className="text-sm font-semibold text-slate-900 hover:text-brand-600">
+                  {c.name}
+                </Link>
+                <Link href={`/companies/${c.id}/workspace/dashboard`} className="btn-secondary btn-sm">
+                  この企業の管理画面に入る
+                </Link>
+              </div>
               <ClientPortalPanel companyId={c.id} portalEnabled={c.client_portal_enabled} />
             </div>
           ))}

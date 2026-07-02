@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
-import { updateLeadFields, deleteLead } from "@/app/leads/actions";
+import { useState, useTransition } from "react";
+import { Trash2, Save, Check } from "lucide-react";
+import { updateLeadFields, deleteLead } from "@/lib/leads-actions";
 
 export interface LeadsTableRow {
   id: string;
@@ -32,69 +33,67 @@ function Cell({ children }: { children: React.ReactNode }) {
   return <td className="border-b border-slate-100 px-2 py-1.5 align-top">{children}</td>;
 }
 
-function EditableText({
-  leadId,
-  name,
-  defaultValue,
-  wide,
-}: {
-  leadId: string;
-  name: string;
-  defaultValue: string | null;
-  wide?: boolean;
-}) {
-  const action = updateLeadFields.bind(null, leadId);
+function TextInput({ formId, name, defaultValue, wide }: { formId: string; name: string; defaultValue: string | null; wide?: boolean }) {
   return (
-    <form action={action}>
-      <input
-        type="text"
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        onBlur={(e) => e.currentTarget.form?.requestSubmit()}
-        className={`field-sm ${wide ? "w-48" : "w-32"}`}
-      />
-    </form>
+    <input
+      type="text"
+      form={formId}
+      name={name}
+      defaultValue={defaultValue ?? ""}
+      className={`field-sm ${wide ? "w-48" : "w-32"}`}
+    />
   );
 }
 
-function EditableDatetime({
-  leadId,
-  name,
-  defaultValue,
-}: {
-  leadId: string;
-  name: string;
-  defaultValue: string | null;
-}) {
-  const action = updateLeadFields.bind(null, leadId);
+function DatetimeInput({ formId, name, defaultValue }: { formId: string; name: string; defaultValue: string | null }) {
   return (
-    <form action={action}>
-      <input
-        type="datetime-local"
-        name={name}
-        defaultValue={defaultValue ? defaultValue.slice(0, 16) : ""}
-        onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="field-sm w-44"
-      />
-    </form>
+    <input
+      type="datetime-local"
+      form={formId}
+      name={name}
+      defaultValue={defaultValue ? defaultValue.slice(0, 16) : ""}
+      className="field-sm w-44"
+    />
   );
 }
 
-function EditableFollowCall({ leadId, defaultValue }: { leadId: string; defaultValue: boolean | null }) {
-  const action = updateLeadFields.bind(null, leadId);
+function FollowCallSelect({ formId, defaultValue }: { formId: string; defaultValue: boolean | null }) {
   return (
-    <form action={action}>
-      <select
-        name="follow_call_desired"
-        defaultValue={defaultValue === null ? "" : String(defaultValue)}
-        onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="field-sm w-24"
-      >
-        <option value="">未設定</option>
-        <option value="true">希望する</option>
-        <option value="false">希望しない</option>
-      </select>
-    </form>
+    <select form={formId} name="follow_call_desired" defaultValue={defaultValue === null ? "" : String(defaultValue)} className="field-sm w-24">
+      <option value="">未設定</option>
+      <option value="true">希望する</option>
+      <option value="false">希望しない</option>
+    </select>
+  );
+}
+
+function SaveButton({ formId, leadId }: { formId: string; leadId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    const form = document.getElementById(formId) as HTMLFormElement | null;
+    if (!form) return;
+    const formData = new FormData(form);
+    startTransition(async () => {
+      await updateLeadFields(leadId, formData);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className="btn-secondary btn-sm shrink-0 disabled:opacity-50"
+      title="この行の変更を保存"
+    >
+      {saved ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
+      更新
+    </button>
   );
 }
 
@@ -104,6 +103,7 @@ export function LeadsTable({ rows, showTenantColumn }: { rows: LeadsTableRow[]; 
       <table className="w-full text-left text-xs">
         <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
           <tr>
+            <th className="px-2 py-2 font-medium"></th>
             {showTenantColumn && <th className="px-2 py-2 font-medium">クライアント</th>}
             <th className="px-2 py-2 font-medium">企業名</th>
             <th className="px-2 py-2 font-medium">アプローチリスト名称</th>
@@ -126,93 +126,88 @@ export function LeadsTable({ rows, showTenantColumn }: { rows: LeadsTableRow[]; 
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-slate-50/60">
-              {showTenantColumn && (
+          {rows.map((row) => {
+            const formId = `lead-form-${row.id}`;
+            return (
+              <tr key={row.id} className="hover:bg-slate-50/60">
                 <Cell>
-                  <Link href={`/companies/${row.companyId}`} className="text-slate-500 hover:underline">
-                    {row.tenantCompanyName}
-                  </Link>
+                  <form id={formId} className="hidden" />
+                  <SaveButton formId={formId} leadId={row.id} />
                 </Cell>
-              )}
-              <Cell>
-                <EditableText leadId={row.id} name="lead_company_name" defaultValue={row.lead_company_name} wide />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="approach_list_name" defaultValue={row.approach_list_name} />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="last_approach_result" defaultValue={row.last_approach_result} />
-              </Cell>
-              <Cell>
-                <EditableDatetime leadId={row.id} name="last_approach_at" defaultValue={row.last_approach_at} />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="activity_summary" defaultValue={row.activity_summary} wide />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="phone" defaultValue={row.phone} />
-              </Cell>
-              <Cell>
-                <EditableFollowCall leadId={row.id} defaultValue={row.follow_call_desired} />
-              </Cell>
-              <Cell>
-                {row.convertedFromDealId ? (
-                  <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
-                    {row.convertedFromDealTitle ?? "案件へ"}
-                  </Link>
-                ) : (
-                  <span className="text-slate-400">-</span>
+                {showTenantColumn && (
+                  <Cell>
+                    <Link href={`/companies/${row.companyId}`} className="text-slate-500 hover:underline">
+                      {row.tenantCompanyName}
+                    </Link>
+                  </Cell>
                 )}
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="follow_call_summary" defaultValue={row.follow_call_summary} wide />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="email" defaultValue={row.email} />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="website_url" defaultValue={row.website_url} />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="postal_code" defaultValue={row.postal_code} />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="address" defaultValue={row.address} wide />
-              </Cell>
-              <Cell>
-                <EditableText
-                  leadId={row.id}
-                  name="material_shipping_destination"
-                  defaultValue={row.material_shipping_destination}
-                />
-              </Cell>
-              <Cell>
-                <EditableText
-                  leadId={row.id}
-                  name="material_request_department"
-                  defaultValue={row.material_request_department}
-                />
-              </Cell>
-              <Cell>
-                <EditableText
-                  leadId={row.id}
-                  name="material_request_contact_name"
-                  defaultValue={row.material_request_contact_name}
-                />
-              </Cell>
-              <Cell>
-                <EditableText leadId={row.id} name="lead_source" defaultValue={row.lead_source} />
-              </Cell>
-              <Cell>
-                <form action={deleteLead.bind(null, row.id)}>
-                  <button type="submit" className="text-slate-400 hover:text-red-600" title="削除">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </form>
-              </Cell>
-            </tr>
-          ))}
+                <Cell>
+                  <TextInput formId={formId} name="lead_company_name" defaultValue={row.lead_company_name} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="approach_list_name" defaultValue={row.approach_list_name} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="last_approach_result" defaultValue={row.last_approach_result} />
+                </Cell>
+                <Cell>
+                  <DatetimeInput formId={formId} name="last_approach_at" defaultValue={row.last_approach_at} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="activity_summary" defaultValue={row.activity_summary} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="phone" defaultValue={row.phone} />
+                </Cell>
+                <Cell>
+                  <FollowCallSelect formId={formId} defaultValue={row.follow_call_desired} />
+                </Cell>
+                <Cell>
+                  {row.convertedFromDealId ? (
+                    <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
+                      {row.convertedFromDealTitle ?? "案件へ"}
+                    </Link>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="follow_call_summary" defaultValue={row.follow_call_summary} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="email" defaultValue={row.email} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="website_url" defaultValue={row.website_url} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="postal_code" defaultValue={row.postal_code} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="address" defaultValue={row.address} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="material_shipping_destination" defaultValue={row.material_shipping_destination} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="material_request_department" defaultValue={row.material_request_department} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="material_request_contact_name" defaultValue={row.material_request_contact_name} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="lead_source" defaultValue={row.lead_source} />
+                </Cell>
+                <Cell>
+                  <form action={deleteLead.bind(null, row.id)}>
+                    <button type="submit" className="text-slate-400 hover:text-red-600" title="削除">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                </Cell>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

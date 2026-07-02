@@ -5,7 +5,6 @@ import { Deal } from "@/lib/types";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
-import { PipelineFunnel } from "@/components/pipeline-funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -88,10 +87,6 @@ export default async function DashboardPage() {
           unit="件"
           accent="text-amber-600"
         />
-      </div>
-
-      <div className="mb-8">
-        <PipelineFunnel deals={deals.map((d) => ({ stage: d.stage, amount: d.amount }))} />
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">

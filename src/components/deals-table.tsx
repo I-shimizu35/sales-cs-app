@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ExternalLink, Save, Check } from "lucide-react";
 import { updateDealFields } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
@@ -57,141 +58,79 @@ function Cell({ children }: { children: React.ReactNode }) {
   return <td className="border-b border-slate-100 px-2 py-1.5 align-top">{children}</td>;
 }
 
-function EditableText({
-  dealId,
-  name,
-  defaultValue,
-  disabled,
-  wide,
-}: {
-  dealId: string;
-  name: string;
-  defaultValue: string | null;
-  disabled: boolean;
-  wide?: boolean;
-}) {
-  const action = updateDealFields.bind(null, dealId);
+function TextInput({ formId, name, defaultValue, disabled, wide }: { formId: string; name: string; defaultValue: string | null; disabled: boolean; wide?: boolean }) {
   return (
-    <form action={action}>
-      <input
-        type="text"
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        disabled={disabled}
-        onBlur={(e) => e.currentTarget.form?.requestSubmit()}
-        className={`field-sm ${wide ? "w-48" : "w-32"} disabled:bg-slate-50 disabled:text-slate-400`}
-      />
-    </form>
+    <input
+      type="text"
+      form={formId}
+      name={name}
+      defaultValue={defaultValue ?? ""}
+      disabled={disabled}
+      className={`field-sm ${wide ? "w-48" : "w-32"} disabled:bg-slate-50 disabled:text-slate-400`}
+    />
   );
 }
 
-function EditableNumber({
-  dealId,
-  name,
-  defaultValue,
-  disabled,
-}: {
-  dealId: string;
-  name: string;
-  defaultValue: number | null;
-  disabled: boolean;
-}) {
-  const action = updateDealFields.bind(null, dealId);
+function NumberInput({ formId, name, defaultValue }: { formId: string; name: string; defaultValue: number | null }) {
+  return <input type="number" form={formId} name={name} defaultValue={defaultValue ?? ""} className="field-sm w-24" />;
+}
+
+function DateInput({ formId, name, defaultValue }: { formId: string; name: string; defaultValue: string | null }) {
+  return <input type="date" form={formId} name={name} defaultValue={defaultValue ?? ""} className="field-sm w-36" />;
+}
+
+function DatetimeInput({ formId, name, defaultValue }: { formId: string; name: string; defaultValue: string | null }) {
   return (
-    <form action={action}>
-      <input
-        type="number"
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        disabled={disabled}
-        onBlur={(e) => e.currentTarget.form?.requestSubmit()}
-        className="field-sm w-24 disabled:bg-slate-50 disabled:text-slate-400"
-      />
-    </form>
+    <input
+      type="datetime-local"
+      form={formId}
+      name={name}
+      defaultValue={defaultValue ? defaultValue.slice(0, 16) : ""}
+      className="field-sm w-44"
+    />
   );
 }
 
-function EditableDate({
-  dealId,
-  name,
-  defaultValue,
-  disabled,
-}: {
-  dealId: string;
-  name: string;
-  defaultValue: string | null;
-  disabled: boolean;
-}) {
-  const action = updateDealFields.bind(null, dealId);
+function UrlInput({ formId, name, defaultValue }: { formId: string; name: string; defaultValue: string | null }) {
   return (
-    <form action={action}>
-      <input
-        type="date"
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        disabled={disabled}
-        onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="field-sm w-36 disabled:bg-slate-50 disabled:text-slate-400"
-      />
-    </form>
-  );
-}
-
-function EditableDatetime({
-  dealId,
-  name,
-  defaultValue,
-  disabled,
-}: {
-  dealId: string;
-  name: string;
-  defaultValue: string | null;
-  disabled: boolean;
-}) {
-  const action = updateDealFields.bind(null, dealId);
-  return (
-    <form action={action}>
-      <input
-        type="datetime-local"
-        name={name}
-        defaultValue={defaultValue ? defaultValue.slice(0, 16) : ""}
-        disabled={disabled}
-        onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="field-sm w-44 disabled:bg-slate-50 disabled:text-slate-400"
-      />
-    </form>
-  );
-}
-
-function EditableUrl({
-  dealId,
-  name,
-  defaultValue,
-  disabled,
-}: {
-  dealId: string;
-  name: string;
-  defaultValue: string | null;
-  disabled: boolean;
-}) {
-  const action = updateDealFields.bind(null, dealId);
-  return (
-    <form action={action} className="flex items-center gap-1">
-      <input
-        type="text"
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        disabled={disabled}
-        placeholder="URL"
-        onBlur={(e) => e.currentTarget.form?.requestSubmit()}
-        className="field-sm w-32 disabled:bg-slate-50 disabled:text-slate-400"
-      />
+    <div className="flex items-center gap-1">
+      <input type="text" form={formId} name={name} defaultValue={defaultValue ?? ""} placeholder="URL" className="field-sm w-32" />
       {defaultValue && (
         <a href={defaultValue} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-brand-600">
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       )}
-    </form>
+    </div>
+  );
+}
+
+function SaveButton({ formId }: { formId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    const form = document.getElementById(formId) as HTMLFormElement | null;
+    if (!form) return;
+    const formData = new FormData(form);
+    startTransition(async () => {
+      await updateDealFields(form.dataset.dealId as string, formData);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className="btn-secondary btn-sm shrink-0 disabled:opacity-50"
+      title="この行の変更を保存"
+    >
+      {saved ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
+      更新
+    </button>
   );
 }
 
@@ -209,6 +148,7 @@ export function DealsTable({
       <table className="w-full text-left text-xs">
         <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
           <tr>
+            <th className="px-2 py-2 font-medium"></th>
             <th className="px-2 py-2 font-medium">No</th>
             <th className="px-2 py-2 font-medium">案件区分</th>
             {showCompanyColumn && <th className="px-2 py-2 font-medium">企業名</th>}
@@ -247,134 +187,134 @@ export function DealsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={row.id} className="hover:bg-slate-50/60">
-              <Cell>{i + 1}</Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="deal_category" defaultValue={row.deal_category} disabled={false} />
-              </Cell>
-              {showCompanyColumn && (
+          {rows.map((row, i) => {
+            const formId = `deal-form-${row.id}`;
+            return (
+              <tr key={row.id} className="hover:bg-slate-50/60">
                 <Cell>
-                  <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
-                    {row.companyName}
-                  </Link>
+                  <form id={formId} data-deal-id={row.id} className="hidden" />
+                  <SaveButton formId={formId} />
                 </Cell>
-              )}
-              {showCompanyColumn && <Cell>{row.companyIndustry ?? "-"}</Cell>}
-              <Cell>
-                <EditableText dealId={row.id} name="contact_name" defaultValue={row.contact_name} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="contact_title" defaultValue={row.contact_title} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="lead_source" defaultValue={row.lead_source} disabled={false} />
-              </Cell>
-              <Cell>
-                <form action={updateDealFields.bind(null, row.id)}>
-                  <select
-                    name="stage"
-                    defaultValue={row.stage}
-                    onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                    className="field-sm w-28"
-                  >
+                <Cell>{i + 1}</Cell>
+                <Cell>
+                  <TextInput formId={formId} name="deal_category" defaultValue={row.deal_category} disabled={false} />
+                </Cell>
+                {showCompanyColumn && (
+                  <Cell>
+                    <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
+                      {row.companyName}
+                    </Link>
+                  </Cell>
+                )}
+                {showCompanyColumn && <Cell>{row.companyIndustry ?? "-"}</Cell>}
+                <Cell>
+                  <TextInput formId={formId} name="contact_name" defaultValue={row.contact_name} disabled={false} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="contact_title" defaultValue={row.contact_title} disabled={false} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="lead_source" defaultValue={row.lead_source} disabled={false} />
+                </Cell>
+                <Cell>
+                  <select form={formId} name="stage" defaultValue={row.stage} className="field-sm w-28">
                     {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
                   </select>
-                </form>
-              </Cell>
-              <Cell>
-                <EditableNumber dealId={row.id} name="amount" defaultValue={row.amount} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableNumber dealId={row.id} name="win_probability" defaultValue={row.win_probability} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableNumber dealId={row.id} name="expected_revenue" defaultValue={row.expected_revenue} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableDate dealId={row.id} name="first_meeting_date" defaultValue={row.first_meeting_date} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableDate dealId={row.id} name="proposal_meeting_date" defaultValue={row.proposal_meeting_date} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableDate dealId={row.id} name="forecast_meeting_date" defaultValue={row.forecast_meeting_date} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableDate dealId={row.id} name="expected_close_date" defaultValue={row.expected_close_date} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableDate dealId={row.id} name="last_contact_date" defaultValue={row.last_contact_date} disabled={false} />
-              </Cell>
-              <Cell>
-                <span className="text-slate-500">{row.next_action_date ?? "-"}</span>
-              </Cell>
-              <Cell>
-                <EditableDatetime dealId={row.id} name="next_meeting_at" defaultValue={row.next_meeting_at} disabled={false} />
-              </Cell>
-              <Cell>
-                <span className="text-slate-500">{elapsedDaysLabel(row.last_contact_date)}</span>
-              </Cell>
-              <Cell>
-                <span className="text-slate-500">{row.next_action_title ?? "-"}</span>
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="customer_issues" defaultValue={row.customer_issues} disabled={false} wide />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="proposal_content" defaultValue={row.proposal_content} disabled={false} wide />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="bant_budget" defaultValue={row.bant_budget} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="bant_authority" defaultValue={row.bant_authority} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="bant_need" defaultValue={row.bant_need} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="bant_timeline" defaultValue={row.bant_timeline} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="concerns" defaultValue={row.concerns} disabled={false} wide />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="lost_reason" defaultValue={row.lost_reason} disabled={false} wide />
-              </Cell>
-              <Cell>
-                <EditableText dealId={row.id} name="follow_up_policy" defaultValue={row.follow_up_policy} disabled={false} wide />
-              </Cell>
-              <Cell>
-                <EditableUrl dealId={row.id} name="minutes_doc_url" defaultValue={row.minutes_doc_url} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableUrl dealId={row.id} name="first_meeting_video_url" defaultValue={row.first_meeting_video_url} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableUrl dealId={row.id} name="second_meeting_video_url" defaultValue={row.second_meeting_video_url} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableUrl dealId={row.id} name="proposal_doc_url" defaultValue={row.proposal_doc_url} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableUrl dealId={row.id} name="quote_doc_url" defaultValue={row.quote_doc_url} disabled={false} />
-              </Cell>
-              <Cell>
-                <EditableText
-                  dealId={row.id}
-                  name="meeting_feedback"
-                  defaultValue={row.meeting_feedback}
-                  disabled={isClient}
-                  wide
-                />
-              </Cell>
-            </tr>
-          ))}
+                </Cell>
+                <Cell>
+                  <NumberInput formId={formId} name="amount" defaultValue={row.amount} />
+                </Cell>
+                <Cell>
+                  <NumberInput formId={formId} name="win_probability" defaultValue={row.win_probability} />
+                </Cell>
+                <Cell>
+                  <NumberInput formId={formId} name="expected_revenue" defaultValue={row.expected_revenue} />
+                </Cell>
+                <Cell>
+                  <DateInput formId={formId} name="first_meeting_date" defaultValue={row.first_meeting_date} />
+                </Cell>
+                <Cell>
+                  <DateInput formId={formId} name="proposal_meeting_date" defaultValue={row.proposal_meeting_date} />
+                </Cell>
+                <Cell>
+                  <DateInput formId={formId} name="forecast_meeting_date" defaultValue={row.forecast_meeting_date} />
+                </Cell>
+                <Cell>
+                  <DateInput formId={formId} name="expected_close_date" defaultValue={row.expected_close_date} />
+                </Cell>
+                <Cell>
+                  <DateInput formId={formId} name="last_contact_date" defaultValue={row.last_contact_date} />
+                </Cell>
+                <Cell>
+                  <span className="text-slate-500">{row.next_action_date ?? "-"}</span>
+                </Cell>
+                <Cell>
+                  <DatetimeInput formId={formId} name="next_meeting_at" defaultValue={row.next_meeting_at} />
+                </Cell>
+                <Cell>
+                  <span className="text-slate-500">{elapsedDaysLabel(row.last_contact_date)}</span>
+                </Cell>
+                <Cell>
+                  <span className="text-slate-500">{row.next_action_title ?? "-"}</span>
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="customer_issues" defaultValue={row.customer_issues} disabled={false} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="proposal_content" defaultValue={row.proposal_content} disabled={false} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="bant_budget" defaultValue={row.bant_budget} disabled={false} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="bant_authority" defaultValue={row.bant_authority} disabled={false} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="bant_need" defaultValue={row.bant_need} disabled={false} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="bant_timeline" defaultValue={row.bant_timeline} disabled={false} />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="concerns" defaultValue={row.concerns} disabled={false} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="lost_reason" defaultValue={row.lost_reason} disabled={false} wide />
+                </Cell>
+                <Cell>
+                  <TextInput formId={formId} name="follow_up_policy" defaultValue={row.follow_up_policy} disabled={false} wide />
+                </Cell>
+                <Cell>
+                  <UrlInput formId={formId} name="minutes_doc_url" defaultValue={row.minutes_doc_url} />
+                </Cell>
+                <Cell>
+                  <UrlInput formId={formId} name="first_meeting_video_url" defaultValue={row.first_meeting_video_url} />
+                </Cell>
+                <Cell>
+                  <UrlInput formId={formId} name="second_meeting_video_url" defaultValue={row.second_meeting_video_url} />
+                </Cell>
+                <Cell>
+                  <UrlInput formId={formId} name="proposal_doc_url" defaultValue={row.proposal_doc_url} />
+                </Cell>
+                <Cell>
+                  <UrlInput formId={formId} name="quote_doc_url" defaultValue={row.quote_doc_url} />
+                </Cell>
+                <Cell>
+                  <TextInput
+                    formId={formId}
+                    name="meeting_feedback"
+                    defaultValue={row.meeting_feedback}
+                    disabled={isClient}
+                    wide
+                  />
+                </Cell>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -74,7 +74,7 @@ export async function createLead(formData: FormData): Promise<void> {
     targetId: data.id,
   });
 
-  revalidatePath("/leads");
+  revalidatePath(`/companies/${companyId}/workspace/leads`);
   revalidatePath("/client/leads");
 }
 
@@ -121,7 +121,7 @@ export async function updateLeadFields(leadId: string, formData: FormData): Prom
     detail: { fields: Object.keys(update) },
   });
 
-  revalidatePath("/leads");
+  revalidatePath(`/companies/${existing.company_id}/workspace/leads`);
   revalidatePath("/client/leads");
 }
 
@@ -146,6 +146,6 @@ export async function deleteLead(leadId: string): Promise<void> {
     throw new Error(`リード削除に失敗しました: ${error.message}`);
   }
 
-  revalidatePath("/leads");
+  revalidatePath(`/companies/${existing.company_id}/workspace/leads`);
   revalidatePath("/client/leads");
 }

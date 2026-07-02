@@ -1,6 +1,6 @@
 "use client";
 
-import { createLead } from "@/app/leads/actions";
+import { createLead } from "@/lib/leads-actions";
 
 export function NewLeadForm({
   companies,

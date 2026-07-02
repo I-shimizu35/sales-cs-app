@@ -57,6 +57,8 @@ function userIdOfActor(actor: CurrentActor): string | null {
 /**
  * 案件が「初回接触より先の商談段階まで進んだ末に失注した」場合のみ、リードとして自動登録する。
  * updateDealStage / updateDealFields の両方から呼ばれる共通ロジック。
+ * 案件管理表に既に入力済みの内容(顧客課題・提案内容・失注理由・最終接触日等)を引き継ぎ、
+ * リード側での再入力(二度手間)を避ける。
  */
 async function maybeAutoCreateLeadFromLostDeal(
   supabase: SupabaseClient,
@@ -72,11 +74,20 @@ async function maybeAutoCreateLeadFromLostDeal(
   if (params.newStage !== "lost") return;
   if (params.previousStage === "first_contact" || params.previousStage === "lost") return;
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name")
-    .eq("id", params.companyId)
-    .maybeSingle();
+  const [{ data: company }, { data: deal }] = await Promise.all([
+    supabase.from("companies").select("name").eq("id", params.companyId).maybeSingle(),
+    supabase
+      .from("deals")
+      .select("contact_name, contact_title, customer_issues, proposal_content, lost_reason, last_contact_date")
+      .eq("id", params.dealId)
+      .maybeSingle(),
+  ]);
+
+  const activitySummaryParts = [
+    deal?.contact_name ? `担当者: ${deal.contact_name}${deal.contact_title ? `(${deal.contact_title})` : ""}` : null,
+    deal?.customer_issues ? `顧客課題: ${deal.customer_issues}` : null,
+    deal?.proposal_content ? `提案内容: ${deal.proposal_content}` : null,
+  ].filter((s): s is string => !!s);
 
   const { error } = await supabase.from("leads").insert({
     company_id: params.companyId,
@@ -84,6 +95,9 @@ async function maybeAutoCreateLeadFromLostDeal(
     lead_company_name: company?.name ?? params.dealTitle,
     owner_user_id: params.ownerUserId,
     lead_source: "失注案件からの自動登録",
+    activity_summary: activitySummaryParts.length > 0 ? activitySummaryParts.join("\n") : null,
+    last_approach_result: deal?.lost_reason ?? null,
+    last_approach_at: deal?.last_contact_date ? new Date(deal.last_contact_date).toISOString() : null,
   });
   if (error) {
     console.warn("失注案件のリード自動登録に失敗しました:", error.message);
@@ -261,8 +275,10 @@ export async function updateDealFields(dealId: string, formData: FormData): Prom
     });
   }
 
-  revalidatePath("/deals");
+  revalidatePath(`/companies/${existing.company_id}/workspace/deals`);
+  revalidatePath(`/companies/${existing.company_id}/workspace/dashboard`);
   revalidatePath("/client/deals");
+  revalidatePath("/client/dashboard");
   revalidatePath(`/companies/${existing.company_id}`);
   revalidatePath("/");
 }

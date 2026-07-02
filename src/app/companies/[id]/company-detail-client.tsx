@@ -170,6 +170,9 @@ export function CompanyDetailClient({
             </p>
           </div>
         </div>
+        <Link href={`/companies/${company.id}/workspace/dashboard`} className="btn-brand shrink-0">
+          この企業の管理画面に入る
+        </Link>
       </div>
 
       {/* Tabs */}

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getAnalyticsData } from "@/lib/analytics-data";
 import { MonthFilter } from "@/components/month-filter";
+import { YomiSummaryCards } from "@/components/yomi-summary-cards";
 import { MonthlyTrendChart, StageBreakdownChart } from "@/components/analytics-charts";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function WorkspaceAnalyticsPage({
   params: { id: string };
   searchParams: { month?: string };
 }) {
-  const { monthlyTrend, stageBreakdown, availableMonths } = await getAnalyticsData({
+  const { monthlyTrend, stageBreakdown, yomiSummary, availableMonths } = await getAnalyticsData({
     companyId: params.id,
     month: searchParams.month,
   });
@@ -22,6 +23,7 @@ export default async function WorkspaceAnalyticsPage({
       <Suspense>
         <MonthFilter availableMonths={availableMonths} />
       </Suspense>
+      <YomiSummaryCards summary={yomiSummary} />
       <div className="mb-6">
         <MonthlyTrendChart data={monthlyTrend} />
       </div>

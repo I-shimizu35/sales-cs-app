@@ -1,6 +1,7 @@
 import { getCurrentClient } from "@/lib/auth";
 import { getDealsTableRows } from "@/lib/deals-table-data";
 import { DealsTable } from "@/components/deals-table";
+import { NewDealForm } from "@/components/new-deal-form";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Briefcase } from "lucide-react";
@@ -14,8 +15,9 @@ export default async function ClientDealsPage() {
   const rows = await getDealsTableRows({ companyId: client.companyId });
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-8 py-10">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-8 py-10">
       <PageHeader title="案件管理表" description="自社の案件をヨミ表形式で一覧・編集できます。" />
+      <NewDealForm companyId={client.companyId} />
       {rows.length === 0 ? (
         <EmptyState icon={Briefcase} title="まだ案件が登録されていません" />
       ) : (

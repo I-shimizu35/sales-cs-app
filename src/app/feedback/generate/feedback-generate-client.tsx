@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Sparkles, CheckCircle2, Target, BarChart3 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { FileText, Sparkles, CheckCircle2, Target, BarChart3, MessageSquareText, Check } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { storeFeedbackToDeal } from "./actions";
 
 export interface TranscriptOption {
   id: string;
@@ -60,6 +61,23 @@ const BANT_LABELS: { key: keyof BantResult; title: string }[] = [
   { key: "timeline", title: "Timeframe (時期)" },
 ];
 
+function formatFeedbackText(results: GenerateResults): string {
+  const parts: string[] = [];
+  if (results.reinforcement_fb?.good_points?.length) {
+    parts.push("【行動強化】");
+    for (const p of results.reinforcement_fb.good_points) {
+      parts.push(`・${p.point}\n  根拠: ${p.evidence}\n  再現方法: ${p.how_to_repeat}`);
+    }
+  }
+  if (results.correction_fb?.improvement_points?.length) {
+    parts.push("【行動是正】");
+    for (const p of results.correction_fb.improvement_points) {
+      parts.push(`・${p.point}\n  根拠: ${p.evidence}\n  改善アクション: ${p.action}`);
+    }
+  }
+  return parts.join("\n\n");
+}
+
 export function FeedbackGenerateClient({
   transcripts,
   initialTranscriptId,
@@ -73,11 +91,15 @@ export function FeedbackGenerateClient({
   const [status, setStatus] = useState<"IDLE" | "GENERATING" | "DONE" | "ERROR">("IDLE");
   const [results, setResults] = useState<GenerateResults>({});
   const [error, setError] = useState<string | null>(null);
+  const [dealId, setDealId] = useState<string | null>(null);
+  const [isStoring, startStoring] = useTransition();
+  const [stored, setStored] = useState(false);
 
   async function handleGenerate() {
     if (!selectedId) return;
     setStatus("GENERATING");
     setError(null);
+    setStored(false);
     try {
       const res = await fetch("/api/generate-feedback", {
         method: "POST",
@@ -87,14 +109,29 @@ export function FeedbackGenerateClient({
       const json = await res.json();
       if (!res.ok) {
         setResults(json.results ?? {});
+        setDealId(json.dealId ?? null);
         throw new Error(json.error ?? "生成に失敗しました。");
       }
       setResults(json.results ?? {});
+      setDealId(json.dealId ?? null);
       setStatus("DONE");
     } catch (e) {
       setError((e as Error).message);
       setStatus("ERROR");
     }
+  }
+
+  function handleStoreFeedback() {
+    if (!dealId) return;
+    const text = formatFeedbackText(results);
+    startStoring(async () => {
+      try {
+        await storeFeedbackToDeal(dealId, text);
+        setStored(true);
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    });
   }
 
   return (
@@ -193,6 +230,56 @@ export function FeedbackGenerateClient({
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* 商談FB */}
+          {(results.reinforcement_fb || results.correction_fb) && (
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <MessageSquareText className="h-4 w-4 text-brand-600" />
+                  商談FB
+                </h3>
+                <button
+                  onClick={handleStoreFeedback}
+                  disabled={!dealId || isStoring}
+                  className="btn-brand btn-sm disabled:opacity-50"
+                >
+                  {stored ? <Check className="h-3.5 w-3.5" /> : null}
+                  {isStoring ? "格納中..." : stored ? "格納済み" : "この案件に格納"}
+                </button>
+              </div>
+              <div className="card grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
+                {results.reinforcement_fb && (
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold text-emerald-700">行動強化</h4>
+                    <div className="space-y-3">
+                      {results.reinforcement_fb.good_points.map((p, i) => (
+                        <div key={i} className="rounded-lg bg-emerald-50/60 p-3 text-xs leading-relaxed text-slate-700">
+                          <p className="mb-1 font-medium text-slate-900">{p.point}</p>
+                          <p className="text-slate-500">根拠: {p.evidence}</p>
+                          <p className="text-slate-500">再現方法: {p.how_to_repeat}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {results.correction_fb && (
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold text-amber-700">行動是正</h4>
+                    <div className="space-y-3">
+                      {results.correction_fb.improvement_points.map((p, i) => (
+                        <div key={i} className="rounded-lg bg-amber-50/60 p-3 text-xs leading-relaxed text-slate-700">
+                          <p className="mb-1 font-medium text-slate-900">{p.point}</p>
+                          <p className="text-slate-500">根拠: {p.evidence}</p>
+                          <p className="text-slate-500">改善アクション: {p.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           )}

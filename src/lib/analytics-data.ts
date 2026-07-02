@@ -19,6 +19,11 @@ export interface OwnerPerformancePoint {
   wonAmount: number;
 }
 
+export interface YomiSummary {
+  yomiCount: number;
+  expectedRevenueTotal: number;
+}
+
 const STAGE_ORDER: DealStage[] = ["first_contact", "hearing", "proposal", "closing", "won", "lost"];
 
 function monthRange(): string[] {
@@ -38,13 +43,14 @@ export async function getAnalyticsData(filter: {
   monthlyTrend: MonthlyTrendPoint[];
   stageBreakdown: StageBreakdownPoint[];
   ownerPerformance: OwnerPerformancePoint[];
+  yomiSummary: YomiSummary;
   availableMonths: string[];
 }> {
   const supabase = createServerClient();
 
   let query = supabase
     .from("deals")
-    .select("stage, amount, owner_user_id, first_meeting_date, expected_close_date");
+    .select("stage, amount, expected_revenue, owner_user_id, first_meeting_date, expected_close_date");
   if (filter.companyId) query = query.eq("company_id", filter.companyId);
   const { data, error } = await query;
   if (error) throw new Error(`分析データの取得に失敗しました: ${error.message}`);
@@ -72,6 +78,13 @@ export async function getAnalyticsData(filter: {
     count: filtered.filter((d) => d.stage === stage).length,
   }));
 
+  // ヨミ = まだ受注/失注していない(進行中の)案件
+  const yomiDeals = filtered.filter((d) => d.stage !== "won" && d.stage !== "lost");
+  const yomiSummary: YomiSummary = {
+    yomiCount: yomiDeals.length,
+    expectedRevenueTotal: yomiDeals.reduce((sum, d) => sum + (d.expected_revenue ?? d.amount ?? 0), 0),
+  };
+
   const ownerIds = Array.from(
     new Set(filtered.map((d) => d.owner_user_id).filter((id): id is string => !!id))
   );
@@ -94,5 +107,5 @@ export async function getAnalyticsData(filter: {
     }));
   }
 
-  return { monthlyTrend, stageBreakdown, ownerPerformance, availableMonths: months };
+  return { monthlyTrend, stageBreakdown, ownerPerformance, yomiSummary, availableMonths: months };
 }

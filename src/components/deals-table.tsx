@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { ExternalLink, Save, Check } from "lucide-react";
-import { updateDealFields } from "@/app/companies/[id]/deal-actions";
+import { ExternalLink, Save, Check, Trash2 } from "lucide-react";
+import { updateDealFields, deleteDeal } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
 
@@ -184,6 +184,7 @@ export function DealsTable({
             <th className="px-2 py-2 font-medium">提案書</th>
             <th className="px-2 py-2 font-medium">見積もり</th>
             <th className="px-2 py-2 font-medium">商談FB</th>
+            <th className="px-2 py-2 font-medium"></th>
           </tr>
         </thead>
         <tbody>
@@ -311,6 +312,13 @@ export function DealsTable({
                     disabled={isClient}
                     wide
                   />
+                </Cell>
+                <Cell>
+                  <form action={deleteDeal.bind(null, row.id)}>
+                    <button type="submit" className="text-slate-400 hover:text-red-600" title="この案件を削除">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
                 </Cell>
               </tr>
             );

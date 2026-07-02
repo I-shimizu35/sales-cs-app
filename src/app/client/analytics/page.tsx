@@ -3,6 +3,7 @@ import { getCurrentClient } from "@/lib/auth";
 import { getAnalyticsData } from "@/lib/analytics-data";
 import { PageHeader } from "@/components/page-header";
 import { MonthFilter } from "@/components/month-filter";
+import { YomiSummaryCards } from "@/components/yomi-summary-cards";
 import { MonthlyTrendChart, StageBreakdownChart } from "@/components/analytics-charts";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function ClientAnalyticsPage({
   const client = await getCurrentClient();
   if (!client) return null;
 
-  const { monthlyTrend, stageBreakdown, availableMonths } = await getAnalyticsData({
+  const { monthlyTrend, stageBreakdown, yomiSummary, availableMonths } = await getAnalyticsData({
     companyId: client.companyId,
     month: searchParams.month,
   });
@@ -26,6 +27,7 @@ export default async function ClientAnalyticsPage({
       <Suspense>
         <MonthFilter availableMonths={availableMonths} />
       </Suspense>
+      <YomiSummaryCards summary={yomiSummary} />
       <div className="mb-6">
         <MonthlyTrendChart data={monthlyTrend} />
       </div>

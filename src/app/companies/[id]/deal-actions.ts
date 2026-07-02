@@ -111,7 +111,6 @@ export async function createDeal(companyId: string, formData: FormData): Promise
   }
 
   const supabase = createServerClient();
-  const userId = await getCurrentUserId();
 
   const { data: company, error: companyError } = await supabase
     .from("companies")
@@ -121,7 +120,10 @@ export async function createDeal(companyId: string, formData: FormData): Promise
   if (companyError || !company) {
     throw new Error(`企業情報の取得に失敗しました: ${companyError?.message ?? ""}`);
   }
-  await assertOwnerOrManager(company.owner_user_id, "企業");
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: company.owner_user_id, companyId },
+    "企業"
+  );
 
   const ownerUserId = formData.get("owner_user_id");
 
@@ -140,16 +142,57 @@ export async function createDeal(companyId: string, formData: FormData): Promise
   }
 
   await recordAuditLog({
-    userId,
+    userId: userIdOfActor(actor),
     action: "create",
     targetType: "deal",
     targetId: data.id,
   });
 
   revalidatePath(`/companies/${companyId}`);
+  revalidatePath(`/companies/${companyId}/workspace/deals`);
+  revalidatePath(`/companies/${companyId}/workspace/dashboard`);
+  revalidatePath("/client/deals");
+  revalidatePath("/client/dashboard");
   revalidatePath("/"); // ダッシュボードの集計もこのタイミングで最新化する
   revalidatePath("/transcripts/new"); // 案件プルダウンにも反映させる
-  redirect(`/companies/${companyId}`);
+}
+
+export async function deleteDeal(dealId: string): Promise<void> {
+  const supabase = createServerClient();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("deals")
+    .select("owner_user_id, company_id")
+    .eq("id", dealId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`案件情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: existing.owner_user_id, companyId: existing.company_id },
+    "案件"
+  );
+
+  await supabase.from("action_items").delete().eq("deal_id", dealId);
+
+  const { error } = await supabase.from("deals").delete().eq("id", dealId);
+  if (error) {
+    throw new Error(`案件削除に失敗しました: ${error.message}`);
+  }
+
+  await recordAuditLog({
+    userId: userIdOfActor(actor),
+    action: "delete",
+    targetType: "deal",
+    targetId: dealId,
+  });
+
+  revalidatePath(`/companies/${existing.company_id}`);
+  revalidatePath(`/companies/${existing.company_id}/workspace/deals`);
+  revalidatePath(`/companies/${existing.company_id}/workspace/dashboard`);
+  revalidatePath("/client/deals");
+  revalidatePath("/client/dashboard");
+  revalidatePath("/");
 }
 
 export async function updateDealStage(dealId: string, formData: FormData): Promise<void> {

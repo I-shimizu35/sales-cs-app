@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Users, ArrowRight } from "lucide-react";
+import { Building2, Users, ArrowRight, CalendarClock } from "lucide-react";
 import { createServerClient } from "@/lib/supabase";
 import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_BADGE_CLASS } from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
@@ -12,6 +12,14 @@ interface ClientRosterRow {
   name: string;
   support_status: "active" | "inactive";
   supporterNames: string[];
+}
+
+interface UpcomingActionRow {
+  id: string;
+  title: string;
+  dueDate: string;
+  companyId: string;
+  companyName: string;
 }
 
 async function getClientRoster(): Promise<ClientRosterRow[]> {
@@ -43,9 +51,31 @@ async function getClientRoster(): Promise<ClientRosterRow[]> {
   }));
 }
 
+async function getUpcomingActions(): Promise<UpcomingActionRow[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("action_items")
+    .select("id, title, due_date, deals(company_id, companies(name))")
+    .neq("status", "done")
+    .order("due_date", { ascending: true })
+    .limit(8);
+  if (error) throw new Error(`次回アクションの取得に失敗しました: ${error.message}`);
+
+  return ((data ?? []) as any[])
+    .filter((item) => item.deals?.company_id)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      dueDate: item.due_date,
+      companyId: item.deals.company_id,
+      companyName: item.deals.companies?.name ?? "(企業不明)",
+    }));
+}
+
 export default async function DashboardPage() {
-  const roster = await getClientRoster();
+  const [roster, upcomingActions] = await Promise.all([getClientRoster(), getUpcomingActions()]);
   const activeCount = roster.filter((c) => c.support_status === "active").length;
+  const today = new Date();
 
   return (
     <div className="mx-auto w-full max-w-5xl px-8 py-10">
@@ -73,6 +103,39 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {upcomingActions.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <CalendarClock className="h-4 w-4 text-amber-600" />
+            要対応アクション
+          </h2>
+          <div className="card divide-y divide-slate-100 overflow-hidden">
+            {upcomingActions.map((action) => {
+              const overdue = new Date(action.dueDate) < new Date(today.toDateString());
+              return (
+                <Link
+                  key={action.id}
+                  href={`/companies/${action.companyId}/workspace/deals`}
+                  className="flex items-center justify-between gap-4 p-3.5 text-sm transition-colors hover:bg-slate-50"
+                >
+                  <div>
+                    <span className="font-medium text-slate-900">{action.companyName}</span>
+                    <span className="ml-2 text-slate-500">{action.title}</span>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      overdue ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {action.dueDate}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {roster.length === 0 ? (
         <EmptyState icon={Building2} title="まだクライアントが登録されていません" />

@@ -3,10 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase";
 import { recordAuditLog } from "@/lib/audit";
-import { getCurrentUserId, assertOwnerOrManager } from "@/lib/auth";
+import { assertOwnerOrClientCompany, CurrentActor } from "@/lib/auth";
 import { ActionItemStatus } from "@/lib/types";
 
 const ACTION_ITEM_STATUSES: ActionItemStatus[] = ["todo", "in_progress", "done"];
+
+function userIdOfActor(actor: CurrentActor): string | null {
+  return actor.type === "staff" ? actor.id : null;
+}
+
+function revalidateActionItemPaths(companyId: string): void {
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath(`/companies/${companyId}/workspace/deals`);
+  revalidatePath(`/companies/${companyId}/workspace/dashboard`);
+  revalidatePath("/client/deals");
+  revalidatePath("/client/dashboard");
+  revalidatePath("/");
+}
 
 async function getDealForGuard(supabase: ReturnType<typeof createServerClient>, dealId: string) {
   const { data, error } = await supabase
@@ -31,9 +44,11 @@ export async function createActionItem(dealId: string, formData: FormData): Prom
   }
 
   const supabase = createServerClient();
-  const userId = await getCurrentUserId();
   const deal = await getDealForGuard(supabase, dealId);
-  await assertOwnerOrManager(deal.owner_user_id, "案件");
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: deal.owner_user_id, companyId: deal.company_id },
+    "案件"
+  );
 
   const assigneeId = formData.get("assignee_id");
 
@@ -53,15 +68,14 @@ export async function createActionItem(dealId: string, formData: FormData): Prom
   }
 
   await recordAuditLog({
-    userId,
+    userId: userIdOfActor(actor),
     action: "create",
     targetType: "action_item",
     targetId: data.id,
     detail: { deal_id: dealId },
   });
 
-  revalidatePath(`/companies/${deal.company_id}`);
-  revalidatePath("/");
+  revalidateActionItemPaths(deal.company_id);
 }
 
 export async function updateActionItemStatus(
@@ -74,7 +88,6 @@ export async function updateActionItemStatus(
   }
 
   const supabase = createServerClient();
-  const userId = await getCurrentUserId();
 
   const { data: existing, error: fetchError } = await supabase
     .from("action_items")
@@ -85,7 +98,10 @@ export async function updateActionItemStatus(
     throw new Error(`次回アクションの取得に失敗しました: ${fetchError?.message ?? ""}`);
   }
   const deal = (existing as any).deals;
-  await assertOwnerOrManager(deal.owner_user_id, "案件");
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: deal.owner_user_id, companyId: deal.company_id },
+    "案件"
+  );
 
   const { error } = await supabase
     .from("action_items")
@@ -96,22 +112,23 @@ export async function updateActionItemStatus(
   }
 
   await recordAuditLog({
-    userId,
+    userId: userIdOfActor(actor),
     action: "update",
     targetType: "action_item",
     targetId: actionItemId,
     detail: { field: "status", to: status },
   });
 
-  revalidatePath(`/companies/${deal.company_id}`);
-  revalidatePath("/");
+  revalidateActionItemPaths(deal.company_id);
 }
 
 export async function deleteActionItem(actionItemId: string, dealId: string): Promise<void> {
   const supabase = createServerClient();
-  const userId = await getCurrentUserId();
   const deal = await getDealForGuard(supabase, dealId);
-  await assertOwnerOrManager(deal.owner_user_id, "案件");
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: deal.owner_user_id, companyId: deal.company_id },
+    "案件"
+  );
 
   const { error } = await supabase.from("action_items").delete().eq("id", actionItemId);
   if (error) {
@@ -119,13 +136,12 @@ export async function deleteActionItem(actionItemId: string, dealId: string): Pr
   }
 
   await recordAuditLog({
-    userId,
+    userId: userIdOfActor(actor),
     action: "delete",
     targetType: "action_item",
     targetId: actionItemId,
     detail: { deal_id: dealId },
   });
 
-  revalidatePath(`/companies/${deal.company_id}`);
-  revalidatePath("/");
+  revalidateActionItemPaths(deal.company_id);
 }

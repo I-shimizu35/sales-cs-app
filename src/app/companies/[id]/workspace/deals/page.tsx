@@ -1,13 +1,22 @@
 import { getDealsTableRows } from "@/lib/deals-table-data";
+import { getActionItemsByDeal } from "@/lib/action-items-data";
+import { createServerClient } from "@/lib/supabase";
 import { DealsTable } from "@/components/deals-table";
 import { NewDealForm } from "@/components/new-deal-form";
+import { ActionItemsPanel } from "@/components/action-items-panel";
 import { EmptyState } from "@/components/empty-state";
+import { AppUser } from "@/lib/types";
 import { Briefcase } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkspaceDealsPage({ params }: { params: { id: string } }) {
-  const rows = await getDealsTableRows({ companyId: params.id });
+  const supabase = createServerClient();
+  const [rows, actionItemGroups, { data: users }] = await Promise.all([
+    getDealsTableRows({ companyId: params.id }),
+    getActionItemsByDeal(params.id),
+    supabase.from("users").select("*").order("name"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -17,6 +26,7 @@ export default async function WorkspaceDealsPage({ params }: { params: { id: str
       ) : (
         <DealsTable rows={rows} showCompanyColumn={false} isClient={false} />
       )}
+      <ActionItemsPanel groups={actionItemGroups} users={(users ?? []) as AppUser[]} />
     </div>
   );
 }

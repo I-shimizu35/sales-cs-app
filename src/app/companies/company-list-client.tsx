@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Building2, User, ChevronRight, SearchX } from "lucide-react";
+import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight } from "lucide-react";
 import { Company } from "@/lib/types";
-import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS } from "@/lib/status";
+import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS, SUPPORT_STATUS_LABEL, SUPPORT_STATUS_BADGE_CLASS } from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 
@@ -16,12 +17,18 @@ function StatusBadge({ status }: { status: Company["deal_status"] }) {
   return <span className={`badge ${DEAL_STATUS_BADGE_CLASS[status]}`}>{DEAL_STATUS_LABEL[status]}</span>;
 }
 
+function SupportStatusBadge({ status }: { status: Company["support_status"] }) {
+  return <span className={`badge ${SUPPORT_STATUS_BADGE_CLASS[status]}`}>{SUPPORT_STATUS_LABEL[status]}</span>;
+}
+
 export function CompanyListClient({
   companies,
   canCreateCompany,
+  supporterNamesByCompany,
 }: {
   companies: CompanyWithOwner[];
   canCreateCompany: boolean;
+  supporterNamesByCompany: Record<string, string[]>;
 }) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
@@ -123,6 +130,8 @@ export function CompanyListClient({
                   <th className="px-6 py-3.5 font-medium">会社名</th>
                   <th className="px-6 py-3.5 font-medium">業種</th>
                   <th className="px-6 py-3.5 font-medium">ステータス</th>
+                  <th className="px-6 py-3.5 font-medium">支援ステータス</th>
+                  <th className="px-6 py-3.5 font-medium">支援担当者</th>
                   <th className="px-6 py-3.5 font-medium">担当者</th>
                   <th className="px-6 py-3.5 text-right font-medium"></th>
                 </tr>
@@ -149,13 +158,31 @@ export function CompanyListClient({
                       <StatusBadge status={company.deal_status} />
                     </td>
                     <td className="px-6 py-3.5">
+                      <SupportStatusBadge status={company.support_status} />
+                    </td>
+                    <td className="px-6 py-3.5 text-slate-600">
+                      {(supporterNamesByCompany[company.id] ?? []).join("、") || (
+                        <span className="text-slate-400">未設定</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-3.5">
                       <div className="flex items-center gap-2 text-slate-600">
                         <User className="h-4 w-4 text-slate-400" />
                         {company.owner?.name ?? "未設定"}
                       </div>
                     </td>
                     <td className="px-6 py-3.5 text-right">
-                      <ChevronRight className="inline-block h-4 w-4 text-slate-300 transition-colors group-hover:text-brand-600" />
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/companies/${company.id}/workspace/dashboard`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+                        >
+                          管理画面へ
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                        <ChevronRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-brand-600" />
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -3,32 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Building2,
-  ArrowLeft,
-  Loader2,
-  Sparkles,
-  AlertCircle,
-  Calendar,
-  CheckCircle2,
-  Trash2,
-} from "lucide-react";
-import { Company, Deal, GeneratedReport, ReportType, AppUser, ActionItem } from "@/lib/types";
-import {
-  DEAL_STATUS_LABEL,
-  DEAL_STATUS_BADGE_CLASS,
-  DEAL_STAGE_LABEL,
-  ACTION_ITEM_STATUS_LABEL,
-} from "@/lib/status";
+import { Building2, ArrowLeft, Loader2, Sparkles, AlertCircle, CheckCircle2, Rocket, X } from "lucide-react";
+import { Company, GeneratedReport, ReportType, AppUser } from "@/lib/types";
+import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
 import { EmptyState } from "@/components/empty-state";
 import { ClientPortalPanel } from "@/components/client-portal-panel";
 import { SupportTeamPanel } from "@/components/support-team-panel";
 import { updateCompany } from "../actions";
-import { createDeal, updateDealStage } from "./deal-actions";
-import { createActionItem, updateActionItemStatus, deleteActionItem } from "./action-item-actions";
 
-type TabType = "basic" | "prep" | "history";
+type TabType = "basic" | "prep";
 
 const PREP_REPORTS: { type: ReportType; label: string }[] = [
   { type: "company_analysis", label: "企業分析" },
@@ -38,34 +22,37 @@ const PREP_REPORTS: { type: ReportType; label: string }[] = [
 
 interface Props {
   company: Company;
-  deals: Deal[];
   generatedReports: GeneratedReport[];
   users: AppUser[];
-  actionItems: ActionItem[];
   supporters: { id: string; user_id: string }[];
   currentUserId: string | null;
   canEditCompany: boolean;
   isManagerOrAdmin: boolean;
   initialSaved?: boolean;
+  isNewlyCreated?: boolean;
 }
 
 export function CompanyDetailClient({
   company,
-  deals,
   generatedReports,
   users,
-  actionItems,
   supporters,
-  currentUserId,
   canEditCompany,
   isManagerOrAdmin,
   initialSaved,
+  isNewlyCreated,
 }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("basic");
   const [showSavedBanner, setShowSavedBanner] = useState(!!initialSaved);
+  const [showNewBanner, setShowNewBanner] = useState(!!isNewlyCreated);
   const [loadingType, setLoadingType] = useState<ReportType | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function dismissNewBanner() {
+    setShowNewBanner(false);
+    router.replace(`/companies/${company.id}`, { scroll: false });
+  }
 
   // 保存完了直後(?saved=1付きでリダイレクトされてきた場合)にバナーを表示し、
   // 数秒後に自動で消してURLからクエリパラメータを取り除く
@@ -94,11 +81,6 @@ export function CompanyDetailClient({
 
   const hasAnyReport = useMemo(() => Object.keys(latestReports).length > 0, [latestReports]);
   const updateCompanyWithId = updateCompany.bind(null, company.id);
-  const createDealWithId = createDeal.bind(null, company.id);
-
-  function canEditDeal(deal: Deal): boolean {
-    return isManagerOrAdmin || deal.owner_user_id === currentUserId;
-  }
 
   async function handleGenerate(reportType: ReportType) {
     setLoadingType(reportType);
@@ -153,6 +135,25 @@ export function CompanyDetailClient({
         </div>
       )}
 
+      {showNewBanner && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+          <div className="flex items-start gap-2">
+            <Rocket className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">企業を登録しました。次にやることの例:</p>
+              <ul className="mt-1 list-disc pl-5 text-xs text-brand-700">
+                <li>下の「支援状況」で支援担当者をアサインする</li>
+                <li>クライアント自身に使ってもらう場合は「クライアントポータル」を有効化する</li>
+                <li>案件の記録を始める場合は上の「この企業の管理画面に入る」から案件管理表へ</li>
+              </ul>
+            </div>
+          </div>
+          <button onClick={dismissNewBanner} className="shrink-0 text-brand-400 hover:text-brand-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-center gap-4">
@@ -184,7 +185,6 @@ export function CompanyDetailClient({
           {[
             { id: "basic", label: "基本情報" },
             { id: "prep", label: "商談準備 (AI)" },
-            { id: "history", label: "案件・商談履歴" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -393,192 +393,7 @@ export function CompanyDetailClient({
             </div>
           </div>
         )}
-
-        {/* 案件・商談履歴タブ */}
-        {activeTab === "history" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="mb-3 text-sm font-semibold text-slate-900">案件一覧</h3>
-              {deals.length === 0 ? (
-                <EmptyState icon={Calendar} title="まだ案件が登録されていません" />
-              ) : (
-                <div className="space-y-4">
-                  {deals.map((deal) => (
-                    <DealCard
-                      key={deal.id}
-                      deal={deal}
-                      users={users}
-                      actionItems={actionItems.filter((a) => a.deal_id === deal.id)}
-                      canEdit={canEditDeal(deal)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {canEditCompany ? (
-              <div className="card p-4">
-                <h3 className="mb-3 text-sm font-semibold text-slate-900">新規案件を作成</h3>
-                <form action={createDealWithId} className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    name="title"
-                    required
-                    placeholder="案件名(例: 2026年度導入検討)"
-                    className="field flex-1"
-                  />
-                  <select name="owner_user_id" defaultValue="" className="field sm:w-auto">
-                    <option value="">担当者: 未設定</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="submit" className="btn-primary">
-                    作成
-                  </button>
-                </form>
-                <p className="mt-2 text-xs text-slate-400">
-                  案件を作成すると、文字起こし登録・商談FB生成の対象として選択できるようになります。
-                </p>
-              </div>
-            ) : (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
-                この企業の担当者ではないため、新規案件の作成はできません。
-              </p>
-            )}
-          </div>
-        )}
       </div>
-    </div>
-  );
-}
-
-function DealCard({
-  deal,
-  users,
-  actionItems,
-  canEdit,
-}: {
-  deal: Deal;
-  users: AppUser[];
-  actionItems: ActionItem[];
-  canEdit: boolean;
-}) {
-  const updateStageWithId = updateDealStage.bind(null, deal.id);
-  const createActionItemWithId = createActionItem.bind(null, deal.id);
-
-  return (
-    <div className="card p-4">
-      <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-brand-50 p-2 text-brand-600">
-          <Calendar className="h-4 w-4" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-slate-900">{deal.title}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-            <form action={updateStageWithId} className="inline-flex items-center gap-1">
-              <span>フェーズ:</span>
-              <select
-                name="stage"
-                defaultValue={deal.stage}
-                disabled={!canEdit}
-                onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                className="field-sm w-auto py-1"
-              >
-                {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </form>
-            <span>
-              • 担当者: {users.find((u) => u.id === deal.owner_user_id)?.name ?? "未設定"}
-            </span>
-            {deal.temperature_score !== null && <span>• 温度感: {deal.temperature_score}</span>}
-            {deal.win_probability !== null && <span>• 受注確度: {deal.win_probability}%</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* 次回アクション */}
-      <div className="mt-3 ml-11 space-y-2 border-t border-slate-100 pt-3">
-        {actionItems.length === 0 ? (
-          <p className="text-xs text-slate-400">次回アクションは登録されていません。</p>
-        ) : (
-          actionItems.map((item) => (
-            <ActionItemRow key={item.id} item={item} users={users} canEdit={canEdit} />
-          ))
-        )}
-
-        {canEdit && (
-          <form action={createActionItemWithId} className="flex flex-wrap items-center gap-2 pt-1">
-            <input
-              name="title"
-              required
-              placeholder="次回アクション(例: 見積提示)"
-              className="field-sm min-w-[180px] flex-1"
-            />
-            <input name="due_date" type="date" required className="field-sm w-auto" />
-            <select name="assignee_id" defaultValue="" className="field-sm w-auto">
-              <option value="">担当: 未設定</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="btn-primary btn-sm">
-              追加
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ActionItemRow({
-  item,
-  users,
-  canEdit,
-}: {
-  item: ActionItem;
-  users: AppUser[];
-  canEdit: boolean;
-}) {
-  const updateStatusWithId = updateActionItemStatus.bind(null, item.id);
-  const deleteWithId = deleteActionItem.bind(null, item.id, item.deal_id);
-
-  return (
-    <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-      <span className="flex-1 text-slate-700">{item.title}</span>
-      <span className="text-slate-400">
-        期日: {item.due_date} • 担当: {users.find((u) => u.id === item.assignee_id)?.name ?? "未設定"}
-      </span>
-      <form action={updateStatusWithId} className="inline-flex">
-        <select
-          name="status"
-          defaultValue={item.status}
-          disabled={!canEdit}
-          onChange={(e) => e.currentTarget.form?.requestSubmit()}
-          className="field-sm w-auto py-1"
-        >
-          {Object.entries(ACTION_ITEM_STATUS_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </form>
-      {canEdit && (
-        <form action={deleteWithId}>
-          <button type="submit" className="text-slate-400 hover:text-red-600" title="削除">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </form>
-      )}
     </div>
   );
 }

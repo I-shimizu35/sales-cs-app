@@ -21,7 +21,7 @@ export default async function ClientLeadsPage() {
       {rows.length === 0 ? (
         <EmptyState icon={Target} title="まだリードが登録されていません" />
       ) : (
-        <LeadsTable rows={rows} />
+        <LeadsTable rows={rows} isClient />
       )}
     </div>
   );

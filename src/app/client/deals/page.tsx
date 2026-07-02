@@ -1,9 +1,13 @@
 import { getCurrentClient } from "@/lib/auth";
 import { getDealsTableRows } from "@/lib/deals-table-data";
+import { getActionItemsByDeal } from "@/lib/action-items-data";
+import { createServerClient } from "@/lib/supabase";
 import { DealsTable } from "@/components/deals-table";
 import { NewDealForm } from "@/components/new-deal-form";
+import { ActionItemsPanel } from "@/components/action-items-panel";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { AppUser } from "@/lib/types";
 import { Briefcase } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +16,12 @@ export default async function ClientDealsPage() {
   const client = await getCurrentClient();
   if (!client) return null;
 
-  const rows = await getDealsTableRows({ companyId: client.companyId });
+  const supabase = createServerClient();
+  const [rows, actionItemGroups, { data: users }] = await Promise.all([
+    getDealsTableRows({ companyId: client.companyId }),
+    getActionItemsByDeal(client.companyId),
+    supabase.from("users").select("*").order("name"),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-8 py-10">
@@ -23,6 +32,7 @@ export default async function ClientDealsPage() {
       ) : (
         <DealsTable rows={rows} showCompanyColumn={false} isClient />
       )}
+      <ActionItemsPanel groups={actionItemGroups} users={(users ?? []) as AppUser[]} />
     </div>
   );
 }

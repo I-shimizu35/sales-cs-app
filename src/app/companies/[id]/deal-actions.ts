@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase";
 import { recordAuditLog } from "@/lib/audit";
-import { getCurrentUserId, assertOwnerOrManager, assertOwnerOrClientCompany, CurrentActor } from "@/lib/auth";
+import { assertOwnerOrClientCompany, CurrentActor } from "@/lib/auth";
 import { DealStage } from "@/lib/types";
 
 const DEAL_STAGES: DealStage[] = [
@@ -193,51 +193,6 @@ export async function deleteDeal(dealId: string): Promise<void> {
   revalidatePath("/client/deals");
   revalidatePath("/client/dashboard");
   revalidatePath("/");
-}
-
-export async function updateDealStage(dealId: string, formData: FormData): Promise<void> {
-  const stage = formData.get("stage");
-  if (typeof stage !== "string" || !DEAL_STAGES.includes(stage as DealStage)) {
-    throw new Error("フェーズの値が不正です。");
-  }
-
-  const supabase = createServerClient();
-  const userId = await getCurrentUserId();
-
-  const { data: existing, error: fetchError } = await supabase
-    .from("deals")
-    .select("owner_user_id, company_id, stage, title")
-    .eq("id", dealId)
-    .single();
-  if (fetchError || !existing) {
-    throw new Error(`案件情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
-  }
-  await assertOwnerOrManager(existing.owner_user_id, "案件");
-
-  const { error } = await supabase.from("deals").update({ stage }).eq("id", dealId);
-  if (error) {
-    throw new Error(`案件フェーズの更新に失敗しました: ${error.message}`);
-  }
-
-  await recordAuditLog({
-    userId,
-    action: "update",
-    targetType: "deal",
-    targetId: dealId,
-    detail: { field: "stage", from: existing.stage, to: stage },
-  });
-
-  await maybeAutoCreateLeadFromLostDeal(supabase, {
-    dealId,
-    companyId: existing.company_id,
-    previousStage: existing.stage as DealStage,
-    newStage: stage,
-    dealTitle: existing.title,
-    ownerUserId: existing.owner_user_id,
-  });
-
-  revalidatePath(`/companies/${existing.company_id}`);
-  revalidatePath("/"); // ダッシュボードの対応中/受注件数の集計を最新化する
 }
 
 /**

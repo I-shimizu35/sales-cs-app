@@ -8,7 +8,6 @@ import { updateLeadFields, deleteLead } from "@/lib/leads-actions";
 export interface LeadsTableRow {
   id: string;
   companyId: string;
-  tenantCompanyName: string;
   convertedFromDealId: string | null;
   convertedFromDealTitle: string | null;
   lead_company_name: string;
@@ -97,14 +96,13 @@ function SaveButton({ formId, leadId }: { formId: string; leadId: string }) {
   );
 }
 
-export function LeadsTable({ rows, showTenantColumn }: { rows: LeadsTableRow[]; showTenantColumn?: boolean }) {
+export function LeadsTable({ rows, isClient }: { rows: LeadsTableRow[]; isClient?: boolean }) {
   return (
     <div className="card overflow-x-auto">
       <table className="w-full text-left text-xs">
         <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
           <tr>
             <th className="px-2 py-2 font-medium"></th>
-            {showTenantColumn && <th className="px-2 py-2 font-medium">クライアント</th>}
             <th className="px-2 py-2 font-medium">企業名</th>
             <th className="px-2 py-2 font-medium">アプローチリスト名称</th>
             <th className="px-2 py-2 font-medium">最終アプローチ結果</th>
@@ -134,13 +132,6 @@ export function LeadsTable({ rows, showTenantColumn }: { rows: LeadsTableRow[]; 
                   <form id={formId} className="hidden" />
                   <SaveButton formId={formId} leadId={row.id} />
                 </Cell>
-                {showTenantColumn && (
-                  <Cell>
-                    <Link href={`/companies/${row.companyId}`} className="text-slate-500 hover:underline">
-                      {row.tenantCompanyName}
-                    </Link>
-                  </Cell>
-                )}
                 <Cell>
                   <TextInput formId={formId} name="lead_company_name" defaultValue={row.lead_company_name} wide />
                 </Cell>
@@ -164,7 +155,10 @@ export function LeadsTable({ rows, showTenantColumn }: { rows: LeadsTableRow[]; 
                 </Cell>
                 <Cell>
                   {row.convertedFromDealId ? (
-                    <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
+                    <Link
+                      href={isClient ? "/client/deals" : `/companies/${row.companyId}/workspace/deals`}
+                      className="text-brand-600 hover:underline"
+                    >
                       {row.convertedFromDealTitle ?? "案件へ"}
                     </Link>
                   ) : (

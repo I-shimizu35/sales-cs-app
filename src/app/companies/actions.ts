@@ -122,7 +122,7 @@ export async function createCompany(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/companies");
-  redirect(`/companies/${data.id}`);
+  redirect(`/companies/${data.id}?new=1`);
 }
 
 export async function updateCompany(companyId: string, formData: FormData): Promise<void> {

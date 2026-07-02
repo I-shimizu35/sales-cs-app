@@ -19,9 +19,34 @@ async function getCompanies(): Promise<CompanyWithOwner[]> {
   return data as unknown as CompanyWithOwner[];
 }
 
+async function getSupporterNamesByCompany(): Promise<Record<string, string[]>> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.from("company_supporters").select("company_id, users(name)");
+  if (error) throw new Error(`支援担当者の取得に失敗しました: ${error.message}`);
+
+  const result: Record<string, string[]> = {};
+  for (const s of (data ?? []) as any[]) {
+    const name = s.users?.name;
+    if (!name) continue;
+    if (!result[s.company_id]) result[s.company_id] = [];
+    result[s.company_id].push(name);
+  }
+  return result;
+}
+
 export default async function CompaniesPage() {
-  const [companies, currentUser] = await Promise.all([getCompanies(), getCurrentUser()]);
+  const [companies, currentUser, supporterNamesByCompany] = await Promise.all([
+    getCompanies(),
+    getCurrentUser(),
+    getSupporterNamesByCompany(),
+  ]);
   // 全ロールが企業を新規登録できる(cs/sales/supportは自分がownerとして自動登録される)
   const canCreateCompany = currentUser !== null;
-  return <CompanyListClient companies={companies} canCreateCompany={canCreateCompany} />;
+  return (
+    <CompanyListClient
+      companies={companies}
+      canCreateCompany={canCreateCompany}
+      supporterNamesByCompany={supporterNamesByCompany}
+    />
+  );
 }

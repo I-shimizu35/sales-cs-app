@@ -6,7 +6,7 @@ export async function getLeadsTableRows(filter: { companyId?: string }): Promise
 
   let query = supabase
     .from("leads")
-    .select("*, deals(title), companies(name)")
+    .select("*, deals(title)")
     .order("created_at", { ascending: false });
   if (filter.companyId) {
     query = query.eq("company_id", filter.companyId);
@@ -18,7 +18,6 @@ export async function getLeadsTableRows(filter: { companyId?: string }): Promise
   return (data ?? []).map((l: any) => ({
     id: l.id,
     companyId: l.company_id,
-    tenantCompanyName: l.companies?.name ?? "(不明)",
     convertedFromDealId: l.converted_from_deal_id,
     convertedFromDealTitle: l.deals?.title ?? null,
     lead_company_name: l.lead_company_name,

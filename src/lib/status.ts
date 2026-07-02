@@ -1,4 +1,14 @@
-import { DealStatus, DealStage, ScoreStatus, ActionItemStatus, ReportType } from "./types";
+import { DealStatus, DealStage, ScoreStatus, ActionItemStatus, ReportType, SupportStatus } from "./types";
+
+export const SUPPORT_STATUS_LABEL: Record<SupportStatus, string> = {
+  active: "支援中",
+  inactive: "支援終了",
+};
+
+export const SUPPORT_STATUS_BADGE_CLASS: Record<SupportStatus, string> = {
+  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  inactive: "bg-slate-50 text-slate-400 border-slate-100",
+};
 
 export const DEAL_STATUS_LABEL: Record<DealStatus, string> = {
   prospect: "見込",

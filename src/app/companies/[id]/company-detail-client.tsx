@@ -23,6 +23,7 @@ import {
 import { GeneratedContentView } from "@/components/generated-content-view";
 import { EmptyState } from "@/components/empty-state";
 import { ClientPortalPanel } from "@/components/client-portal-panel";
+import { SupportTeamPanel } from "@/components/support-team-panel";
 import { updateCompany } from "../actions";
 import { createDeal, updateDealStage } from "./deal-actions";
 import { createActionItem, updateActionItemStatus, deleteActionItem } from "./action-item-actions";
@@ -41,6 +42,7 @@ interface Props {
   generatedReports: GeneratedReport[];
   users: AppUser[];
   actionItems: ActionItem[];
+  supporters: { id: string; user_id: string }[];
   currentUserId: string | null;
   canEditCompany: boolean;
   isManagerOrAdmin: boolean;
@@ -53,6 +55,7 @@ export function CompanyDetailClient({
   generatedReports,
   users,
   actionItems,
+  supporters,
   currentUserId,
   canEditCompany,
   isManagerOrAdmin,
@@ -301,6 +304,17 @@ export function CompanyDetailClient({
               )}
             </section>
           </form>
+        )}
+
+        {activeTab === "basic" && canEditCompany && (
+          <div className="mt-8">
+            <SupportTeamPanel
+              companyId={company.id}
+              supportStatus={company.support_status}
+              supporters={supporters}
+              users={users}
+            />
+          </div>
         )}
 
         {activeTab === "basic" && isManagerOrAdmin && (

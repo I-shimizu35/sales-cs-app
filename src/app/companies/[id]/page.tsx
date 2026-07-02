@@ -58,6 +58,21 @@ async function getActionItems(dealIds: string[]): Promise<ActionItem[]> {
   return data as ActionItem[];
 }
 
+interface SupporterRow {
+  id: string;
+  user_id: string;
+}
+
+async function getSupporters(companyId: string): Promise<SupporterRow[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("company_supporters")
+    .select("id, user_id")
+    .eq("company_id", companyId);
+  if (error) throw new Error(`支援担当者の取得に失敗しました: ${error.message}`);
+  return data as SupporterRow[];
+}
+
 export default async function CompanyDetailPage({
   params,
   searchParams,
@@ -68,11 +83,12 @@ export default async function CompanyDetailPage({
   const company = await getCompany(params.id);
   if (!company) notFound();
 
-  const [deals, generatedReports, users, currentUser] = await Promise.all([
+  const [deals, generatedReports, users, currentUser, supporters] = await Promise.all([
     getDeals(company.id),
     getGeneratedReports(company.id),
     getUsers(),
     getCurrentUser(),
+    getSupporters(company.id),
   ]);
   const actionItems = await getActionItems(deals.map((d) => d.id));
 
@@ -87,6 +103,7 @@ export default async function CompanyDetailPage({
       generatedReports={generatedReports}
       users={users}
       actionItems={actionItems}
+      supporters={supporters}
       currentUserId={currentUser?.id ?? null}
       canEditCompany={canEditCompany}
       isManagerOrAdmin={!!currentUser && isManagerOrAdmin(currentUser.role)}

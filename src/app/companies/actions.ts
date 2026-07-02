@@ -179,3 +179,79 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
   revalidatePath(`/companies/${companyId}`);
   redirect(`/companies/${companyId}?saved=1`);
 }
+
+export async function updateSupportStatus(companyId: string, formData: FormData): Promise<void> {
+  const status = formData.get("support_status");
+  if (status !== "active" && status !== "inactive") {
+    throw new Error("支援ステータスの値が不正です。");
+  }
+
+  const supabase = createServerClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("companies")
+    .select("owner_user_id")
+    .eq("id", companyId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`企業情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  await assertOwnerOrManager(existing.owner_user_id, "企業");
+
+  const { error } = await supabase.from("companies").update({ support_status: status }).eq("id", companyId);
+  if (error) {
+    throw new Error(`支援ステータスの更新に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/");
+}
+
+export async function addSupporter(companyId: string, formData: FormData): Promise<void> {
+  const userId = formData.get("user_id");
+  if (typeof userId !== "string" || !userId) {
+    throw new Error("担当者を選択してください。");
+  }
+
+  const supabase = createServerClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("companies")
+    .select("owner_user_id")
+    .eq("id", companyId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`企業情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  await assertOwnerOrManager(existing.owner_user_id, "企業");
+
+  const { error } = await supabase
+    .from("company_supporters")
+    .insert({ company_id: companyId, user_id: userId });
+  if (error && error.code !== "23505") {
+    // 23505 = unique制約違反(既にアサイン済み)は無視する
+    throw new Error(`支援担当者の追加に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/");
+}
+
+export async function removeSupporter(supporterId: string, companyId: string): Promise<void> {
+  const supabase = createServerClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("companies")
+    .select("owner_user_id")
+    .eq("id", companyId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`企業情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  await assertOwnerOrManager(existing.owner_user_id, "企業");
+
+  const { error } = await supabase.from("company_supporters").delete().eq("id", supporterId);
+  if (error) {
+    throw new Error(`支援担当者の削除に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/");
+}

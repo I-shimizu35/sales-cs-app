@@ -15,6 +15,8 @@ export interface AppUser {
 
 export type DealStatus = "prospect" | "in_progress" | "won" | "lost" | "dormant";
 
+export type SupportStatus = "active" | "inactive";
+
 export interface Company {
   id: string;
   name: string;
@@ -29,6 +31,7 @@ export interface Company {
   current_issues: string | null;
   goals: string | null;
   deal_status: DealStatus;
+  support_status: SupportStatus;
   owner_user_id: string | null;
   created_by: string | null;
   client_login_slug: string | null;
@@ -138,6 +141,13 @@ export interface ActionItem {
   status: ActionItemStatus;
   created_at: string;
   updated_at: string;
+}
+
+export interface CompanySupporter {
+  id: string;
+  company_id: string;
+  user_id: string;
+  created_at: string;
 }
 
 // company_id: どのクライアントのリードか(テナントスコープ)。

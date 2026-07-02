@@ -150,6 +150,7 @@ export function DealsTable({
           <tr>
             <th className="px-2 py-2 font-medium"></th>
             <th className="px-2 py-2 font-medium">No</th>
+            <th className="px-2 py-2 font-medium">案件名</th>
             <th className="px-2 py-2 font-medium">案件区分</th>
             {showCompanyColumn && <th className="px-2 py-2 font-medium">企業名</th>}
             {showCompanyColumn && <th className="px-2 py-2 font-medium">業種</th>}
@@ -197,6 +198,9 @@ export function DealsTable({
                   <SaveButton formId={formId} />
                 </Cell>
                 <Cell>{i + 1}</Cell>
+                <Cell>
+                  <TextInput formId={formId} name="title" defaultValue={row.title} disabled={false} wide />
+                </Cell>
                 <Cell>
                   <TextInput formId={formId} name="deal_category" defaultValue={row.deal_category} disabled={false} />
                 </Cell>

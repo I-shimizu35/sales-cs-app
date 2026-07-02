@@ -264,7 +264,12 @@ export async function updateDealFields(dealId: string, formData: FormData): Prom
   const update: Record<string, unknown> = {};
 
   for (const key of EDITABLE_TEXT_FIELDS) {
-    if (formData.has(key)) update[key] = (formData.get(key) as string) || null;
+    if (!formData.has(key)) continue;
+    const value = (formData.get(key) as string) || null;
+    if (key === "title" && !value) {
+      throw new Error("案件名は空にできません。");
+    }
+    update[key] = value;
   }
   for (const key of EDITABLE_NUMBER_FIELDS) {
     if (formData.has(key)) {

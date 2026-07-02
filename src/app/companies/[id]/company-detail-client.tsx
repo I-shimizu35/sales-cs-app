@@ -22,6 +22,7 @@ import {
 } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
 import { EmptyState } from "@/components/empty-state";
+import { ClientPortalPanel } from "@/components/client-portal-panel";
 import { updateCompany } from "../actions";
 import { createDeal, updateDealStage } from "./deal-actions";
 import { createActionItem, updateActionItemStatus, deleteActionItem } from "./action-item-actions";
@@ -297,6 +298,12 @@ export function CompanyDetailClient({
               )}
             </section>
           </form>
+        )}
+
+        {activeTab === "basic" && isManagerOrAdmin && (
+          <div className="mt-8">
+            <ClientPortalPanel companyId={company.id} portalEnabled={company.client_portal_enabled} />
+          </div>
         )}
 
         {/* 商談準備タブ */}

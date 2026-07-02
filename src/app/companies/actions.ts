@@ -1,10 +1,81 @@
 "use server";
 
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
 import { recordAuditLog } from "@/lib/audit";
-import { getCurrentUser, getCurrentUserId, isManagerOrAdmin, assertOwnerOrManager } from "@/lib/auth";
+import {
+  getCurrentUser,
+  getCurrentUserId,
+  isManagerOrAdmin,
+  assertOwnerOrManager,
+  requireAdminOrManager,
+} from "@/lib/auth";
+
+export interface ClientPortalCredentials {
+  loginUrl: string;
+  password: string;
+}
+
+/**
+ * クライアントポータルの専用ログインURL(slug)と初期パスワードを再生成して有効化する。
+ * 実行の都度、古いURL・パスワードは無効になる(単純化のため再発行=ローテーションとする)。
+ * パスワードは平文で保存しないためこの関数の戻り値でのみ確認できる。
+ */
+export async function enableClientPortal(companyId: string): Promise<ClientPortalCredentials> {
+  await requireAdminOrManager();
+
+  const slug = crypto.randomBytes(6).toString("base64url");
+  const password = crypto.randomBytes(9).toString("base64url");
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("companies")
+    .update({
+      client_login_slug: slug,
+      client_password_hash: passwordHash,
+      client_portal_enabled: true,
+    })
+    .eq("id", companyId);
+  if (error) {
+    throw new Error(`クライアントポータルの有効化に失敗しました: ${error.message}`);
+  }
+
+  const userId = await getCurrentUserId();
+  await recordAuditLog({
+    userId,
+    action: "update",
+    targetType: "company",
+    targetId: companyId,
+    detail: { field: "client_portal" },
+  });
+
+  const host = headers().get("host");
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const loginUrl = `${protocol}://${host}/client/login?c=${slug}`;
+
+  revalidatePath(`/companies/${companyId}`);
+  return { loginUrl, password };
+}
+
+export async function disableClientPortal(companyId: string): Promise<void> {
+  await requireAdminOrManager();
+
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("companies")
+    .update({ client_portal_enabled: false })
+    .eq("id", companyId);
+  if (error) {
+    throw new Error(`クライアントポータルの無効化に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/companies/${companyId}`);
+}
 
 export async function createCompany(formData: FormData): Promise<void> {
   const name = formData.get("name");
@@ -56,7 +127,8 @@ export async function createCompany(formData: FormData): Promise<void> {
 
 export async function updateCompany(companyId: string, formData: FormData): Promise<void> {
   const supabase = createServerClient();
-  const userId = await getCurrentUserId();
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id ?? null;
 
   const { data: existing, error: fetchError } = await supabase
     .from("companies")
@@ -67,6 +139,16 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
     throw new Error(`企業情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
   }
   await assertOwnerOrManager(existing.owner_user_id, "企業");
+
+  // admin/manager以外はowner_user_idを変更できない(フォームのselectもdisabledで送信されないため)。
+  // admin/managerであっても、フィールド自体が送信されていない場合は既存値を維持する
+  // (フォーム欠落や直接API呼び出しで担当者が意図せず外れてロックアウトされるのを防ぐ)。
+  const resolvedOwnerUserId =
+    currentUser && !isManagerOrAdmin(currentUser.role)
+      ? existing.owner_user_id
+      : formData.has("owner_user_id")
+        ? (formData.get("owner_user_id") as string) || null
+        : existing.owner_user_id;
 
   const { error } = await supabase
     .from("companies")
@@ -79,7 +161,7 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
       support_purpose: formData.get("support_purpose") || null,
       current_issues: formData.get("current_issues") || null,
       goals: formData.get("goals") || null,
-      owner_user_id: (formData.get("owner_user_id") as string) || null,
+      owner_user_id: resolvedOwnerUserId,
     })
     .eq("id", companyId);
 

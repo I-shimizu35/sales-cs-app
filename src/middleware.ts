@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@/lib/supabase";
+import { verifyClientSessionCookieValue, CLIENT_SESSION_COOKIE_NAME } from "@/lib/client-session";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/access-denied"];
 
@@ -8,9 +9,41 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-export async function middleware(request: NextRequest) {
-  const { response: sessionResponse, user } = await updateSession(request);
+/**
+ * クライアントポータル(/client/**)は内部スタッフ向けSupabase Auth経路とは完全に独立した
+ * セッション機構(companies.client_password_hash + 署名付きCookie)を使うため、
+ * ここで早期に分岐し、updateSession()(Supabase Authのトークンリフレッシュ)を一切呼ばない。
+ */
+async function handleClientPortalRequest(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+
+  if (pathname === "/client/login") {
+    return NextResponse.next();
+  }
+
+  const cookieValue = request.cookies.get(CLIENT_SESSION_COOKIE_NAME)?.value;
+  const companyId = await verifyClientSessionCookieValue(cookieValue);
+
+  if (!companyId) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/client/login";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-client-company-id", companyId);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/client")) {
+    return handleClientPortalRequest(request);
+  }
+
+  const { response: sessionResponse, user } = await updateSession(request);
 
   if (isPublicPath(pathname)) {
     return sessionResponse;

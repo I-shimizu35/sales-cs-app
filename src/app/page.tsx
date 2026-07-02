@@ -5,6 +5,7 @@ import { Deal } from "@/lib/types";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { PipelineFunnel } from "@/components/pipeline-funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,10 @@ export default async function DashboardPage() {
         />
       </div>
 
+      <div className="mb-8">
+        <PipelineFunnel deals={deals.map((d) => ({ stage: d.stage, amount: d.amount }))} />
+      </div>
+
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Deals list */}
         <div className="lg:col-span-2">
@@ -106,26 +111,28 @@ export default async function DashboardPage() {
             ) : (
               <ul className="divide-y divide-slate-100">
                 {deals.slice(0, 8).map((deal) => (
-                  <li
-                    key={deal.id}
-                    className="group flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-slate-50"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">
-                        {deal.companies?.name ?? "(企業不明)"} - {deal.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        フェーズ: {DEAL_STAGE_LABEL[deal.stage]}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {deal.temperature_score !== null && (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                          温度感: {deal.temperature_score}
-                        </span>
-                      )}
-                      <ArrowRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-brand-500" />
-                    </div>
+                  <li key={deal.id}>
+                    <Link
+                      href={`/companies/${deal.company_id}`}
+                      className="group flex items-center justify-between p-4 transition-colors hover:bg-slate-50"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {deal.companies?.name ?? "(企業不明)"} - {deal.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          フェーズ: {DEAL_STAGE_LABEL[deal.stage]}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {deal.temperature_score !== null && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                            温度感: {deal.temperature_score}
+                          </span>
+                        )}
+                        <ArrowRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-brand-500" />
+                      </div>
+                    </Link>
                   </li>
                 ))}
               </ul>

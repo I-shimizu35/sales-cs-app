@@ -23,6 +23,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           >
             AIプロンプト管理
           </Link>
+          <Link
+            href="/admin/clients"
+            className="border-b-2 border-transparent pb-3 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
+          >
+            クライアント管理
+          </Link>
         </nav>
       </div>
       {children}

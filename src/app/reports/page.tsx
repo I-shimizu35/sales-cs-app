@@ -29,36 +29,58 @@ interface SearchParams {
   page?: string;
 }
 
+function applyFilters<T>(query: T, params: SearchParams): T {
+  let q = query as any;
+  if (params.targetType) q = q.eq("target_type", params.targetType);
+  if (params.reportType) q = q.eq("report_type", params.reportType);
+  if (params.dateFrom) q = q.gte("created_at", `${params.dateFrom}T00:00:00`);
+  if (params.dateTo) q = q.lte("created_at", `${params.dateTo}T23:59:59`);
+  return q;
+}
+
 async function getReports(
   params: SearchParams
 ): Promise<{ reports: RawReport[]; total: number; page: number; pageCount: number }> {
   const supabase = createServerClient();
-  const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
+  const requestedPage = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
+
+  // 件数を先に確認し、ページ番号が総ページ数を超えないようclampする
+  // (絞り込み条件の変更等で総件数が減った場合、超過したrangeをPostgRESTへ渡すと
+  // 416 Requested range not satisfiableで例外になるため)
+  const countQuery = applyFilters(
+    supabase.from("generated_reports").select("id", { count: "exact", head: true }),
+    params
+  );
+  const { count: totalCount, error: countError } = await countQuery;
+  if (countError) throw new Error(`生成履歴の取得に失敗しました: ${countError.message}`);
+
+  const total = totalCount ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
+
+  if (total === 0) {
+    return { reports: [], total: 0, page: 1, pageCount: 1 };
+  }
+
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  let query = supabase
-    .from("generated_reports")
-    .select("id, target_type, target_id, report_type, content, google_doc_url, generated_by, created_at", {
-      count: "exact",
-    })
-    .order("created_at", { ascending: false })
-    .range(from, to);
-
-  if (params.targetType) query = query.eq("target_type", params.targetType);
-  if (params.reportType) query = query.eq("report_type", params.reportType);
-  if (params.dateFrom) query = query.gte("created_at", `${params.dateFrom}T00:00:00`);
-  if (params.dateTo) query = query.lte("created_at", `${params.dateTo}T23:59:59`);
-
-  const { data, error, count } = await query;
+  const dataQuery = applyFilters(
+    supabase
+      .from("generated_reports")
+      .select("id, target_type, target_id, report_type, content, google_doc_url, generated_by, created_at")
+      .order("created_at", { ascending: false })
+      .range(from, to),
+    params
+  );
+  const { data, error } = await dataQuery;
   if (error) throw new Error(`生成履歴の取得に失敗しました: ${error.message}`);
 
-  const total = count ?? 0;
   return {
     reports: (data ?? []) as RawReport[],
     total,
     page,
-    pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    pageCount,
   };
 }
 

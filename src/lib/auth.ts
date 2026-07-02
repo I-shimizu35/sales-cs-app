@@ -53,3 +53,54 @@ export async function assertOwnerOrManager(
   }
   return user;
 }
+
+/**
+ * クライアントポータル(companies.client_password_hashでログインする顧客企業)向けの
+ * 軽量アクター情報。Supabase Authとは別経路(middlewareがx-client-company-idヘッダを注入)。
+ */
+export interface CurrentClient {
+  companyId: string;
+}
+
+export async function getCurrentClient(): Promise<CurrentClient | null> {
+  const h = headers();
+  const companyId = h.get("x-client-company-id");
+  return companyId ? { companyId } : null;
+}
+
+export type CurrentActor =
+  | ({ type: "staff" } & CurrentUser)
+  | ({ type: "client" } & CurrentClient);
+
+export async function getCurrentActor(): Promise<CurrentActor | null> {
+  const user = await getCurrentUser();
+  if (user) return { type: "staff", ...user };
+  const client = await getCurrentClient();
+  if (client) return { type: "client", ...client };
+  return null;
+}
+
+/**
+ * deals/leadsなど「社内担当者(owner_user_id) or 自社データを閲覧するクライアント(company_id一致)」
+ * のどちらからも編集され得るレコード用の権限チェック。
+ * 社内側の判定基準は既存のassertOwnerOrManagerと同じ(admin/manager無条件、それ以外はowner本人のみ)。
+ */
+export async function assertOwnerOrClientCompany(
+  record: { ownerUserId: string | null; companyId: string },
+  label: string
+): Promise<CurrentActor> {
+  const actor = await getCurrentActor();
+  if (!actor) {
+    throw new Error("認証が必要です。");
+  }
+  if (actor.type === "staff") {
+    if (isManagerOrAdmin(actor.role) || record.ownerUserId === actor.id) {
+      return actor;
+    }
+    throw new Error(`この${label}を編集する権限がありません(担当者本人のみ編集できます)。`);
+  }
+  if (actor.companyId !== record.companyId) {
+    throw new Error(`この${label}を編集する権限がありません。`);
+  }
+  return actor;
+}

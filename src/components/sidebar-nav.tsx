@@ -11,6 +11,9 @@ import {
   Settings,
   LogOut,
   Building,
+  Briefcase,
+  Target,
+  BarChart3,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase";
 import { UserRole } from "@/lib/types";
@@ -26,6 +29,9 @@ const ROLE_LABEL: Record<UserRole, string> = {
 const NAV_ITEMS = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/companies", label: "企業一覧", icon: Building2 },
+  { href: "/deals", label: "案件管理表", icon: Briefcase },
+  { href: "/leads", label: "リード一覧", icon: Target },
+  { href: "/analytics", label: "分析", icon: BarChart3 },
   { href: "/transcripts/new", label: "文字起こし入力", icon: FileText },
   { href: "/feedback/generate", label: "商談FB生成", icon: Sparkles },
   { href: "/reports", label: "生成履歴", icon: History },

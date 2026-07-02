@@ -1,0 +1,55 @@
+import { headers } from "next/headers";
+import { UserRole } from "./types";
+
+/**
+ * middlewareが検証済みのユーザー情報(x-app-user-id / x-app-user-role)を
+ * リクエストヘッダから読み取るだけの軽量ヘルパー。DBへの再問い合わせは行わない。
+ */
+export interface CurrentUser {
+  id: string;
+  role: UserRole;
+}
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const h = headers();
+  const id = h.get("x-app-user-id");
+  const role = h.get("x-app-user-role") as UserRole | null;
+  return id && role ? { id, role } : null;
+}
+
+export async function getCurrentUserId(): Promise<string | null> {
+  return (await getCurrentUser())?.id ?? null;
+}
+
+export function isManagerOrAdmin(role: UserRole): boolean {
+  return role === "admin" || role === "manager";
+}
+
+export async function requireAdminOrManager(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user || !isManagerOrAdmin(user.role)) {
+    throw new Error("この操作には管理者またはマネージャー権限が必要です。");
+  }
+  return user;
+}
+
+/**
+ * 対象レコード(企業・案件)のowner_user_idに対する編集権限をチェックする。
+ * admin/managerは無条件に許可、それ以外はowner本人のみ許可する。
+ */
+export async function assertOwnerOrManager(
+  ownerUserId: string | null,
+  label: string
+): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error("認証が必要です。");
+  }
+  if (isManagerOrAdmin(user.role)) {
+    return user;
+  }
+  if (ownerUserId !== user.id) {
+    throw new Error(`この${label}を編集する権限がありません(担当者本人のみ編集できます)。`);
+  }
+  return user;
+}

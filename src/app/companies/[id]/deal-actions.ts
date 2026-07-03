@@ -262,6 +262,22 @@ export async function bulkImportDeals(
 
 const UPLOADABLE_FIELDS = ["minutes_doc_url", "proposal_doc_url", "quote_doc_url"] as const;
 const ATTACHMENT_BUCKET = "deal-documents";
+// HTML/SVG/実行ファイル等、ブラウザ内で描画・実行されうる形式を除外した許可リスト方式。
+const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "txt",
+  "csv",
+  "png",
+  "jpg",
+  "jpeg",
+  "zip",
+]);
 // 署名付きURLの有効期限(10年)。バケットが非公開のため、案件管理表のURL欄には
 // 有効期限付きの署名URLをそのまま保存する簡易実装(期限切れ時は再アップロードが必要)。
 const SIGNED_URL_EXPIRES_IN = 60 * 60 * 24 * 365 * 10;
@@ -297,19 +313,32 @@ export async function uploadDealAttachment(
     "案件"
   );
 
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_ATTACHMENT_EXTENSIONS.has(ext)) {
+    throw new Error(
+      `この形式のファイルはアップロードできません(対応形式: ${Array.from(ALLOWED_ATTACHMENT_EXTENSIONS).join(", ")})。`
+    );
+  }
+
   const safeName = file.name.replace(/[^\w.\-ぁ-んァ-ヶ一-龠]/g, "_");
   const path = `${existing.company_id}/${dealId}/${fieldKey}-${Date.now()}-${safeName}`;
 
+  // contentTypeはブラウザが渡すfile.typeを信用せず、拡張子から安全側で決め打ちする
+  // (HTML/SVG等をブラウザ内で描画・実行させないため。閲覧時も常にダウンロードさせる)
+  // FileをBlobのまま渡すとstorage-jsがmultipart/form-data経路に分岐し、
+  // ここで指定したcontentTypeが無視されてfile.type(ブラウザ申告値)がそのまま使われてしまうため、
+  // 明示的にBufferへ変換してcontentTypeが確実に適用される経路を通す。
+  const fileBuffer = Buffer.from(await file.arrayBuffer());
   const { error: uploadError } = await supabase.storage
     .from(ATTACHMENT_BUCKET)
-    .upload(path, file, { contentType: file.type || undefined });
+    .upload(path, fileBuffer, { contentType: "application/octet-stream" });
   if (uploadError) {
     throw new Error(`ファイルのアップロードに失敗しました: ${uploadError.message}`);
   }
 
   const { data: signed, error: signError } = await supabase.storage
     .from(ATTACHMENT_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN);
+    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN, { download: safeName });
   if (signError || !signed) {
     throw new Error(`アップロードURLの発行に失敗しました: ${signError?.message ?? ""}`);
   }

@@ -45,7 +45,17 @@ const CSV_COLUMNS: { key: keyof LeadsTableRow; label: string }[] = [
   { key: "lead_source", label: "リード取得元" },
 ];
 
-function csvEscape(value: string): string {
+/**
+ * Excel/Googleスプレッドシートの数式インジェクション対策(CWE-1236)。
+ * =, +, -, @, タブ, 改行始まりのセルは先頭にシングルクォートを付与し、
+ * 開いた際に数式として実行されないようにする。
+ */
+function sanitizeForSpreadsheet(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
+function csvEscape(rawValue: string): string {
+  const value = sanitizeForSpreadsheet(rawValue);
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
 }

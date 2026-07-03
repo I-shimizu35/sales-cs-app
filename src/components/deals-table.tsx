@@ -98,7 +98,17 @@ function cellTextValue(row: DealsTableRow, key: string): string {
   return String(value);
 }
 
-function csvEscape(value: string): string {
+/**
+ * Excel/Googleスプレッドシートの数式インジェクション対策(CWE-1236)。
+ * =, +, -, @, タブ, 改行始まりのセルは先頭にシングルクォートを付与し、
+ * 開いた際に数式として実行されないようにする。
+ */
+function sanitizeForSpreadsheet(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
+function csvEscape(rawValue: string): string {
+  const value = sanitizeForSpreadsheet(rawValue);
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
 }
@@ -212,7 +222,13 @@ function UrlInput({
           >
             <Paperclip className="h-3.5 w-3.5" />
           </button>
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.zip"
+            className="hidden"
+            onChange={handleFileChange}
+          />
         </>
       )}
     </div>

@@ -29,6 +29,7 @@ export const DEAL_CSV_COLUMNS: { key: string; label: string }[] = [
   { key: "concerns", label: "懸念点" },
   { key: "lost_reason", label: "失注理由" },
   { key: "follow_up_policy", label: "フォロー方針" },
+  { key: "roleplay_conducted_at", label: "ロープレ実施日" },
   { key: "minutes_doc_url", label: "商談議事録" },
   { key: "first_meeting_video_url", label: "一次商談動画" },
   { key: "second_meeting_video_url", label: "二次商談動画" },

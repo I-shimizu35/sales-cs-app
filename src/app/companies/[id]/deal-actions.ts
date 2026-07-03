@@ -171,6 +171,7 @@ const CSV_DATE_FIELDS = new Set([
   "forecast_meeting_date",
   "expected_close_date",
   "last_contact_date",
+  "roleplay_conducted_at",
 ]);
 const STAGE_LABEL_TO_VALUE: Record<string, DealStage> = {
   初回接触: "first_contact",

@@ -1,5 +1,6 @@
 import { Building2, Lock } from "lucide-react";
 import { verifyClientLogin } from "./actions";
+import { ForgotPasswordLink } from "./forgot-password-link";
 
 export default function ClientLoginPage({
   searchParams,
@@ -47,6 +48,7 @@ export default function ClientLoginPage({
             </button>
           </form>
         )}
+        {slug && <ForgotPasswordLink slug={slug} />}
       </div>
     </div>
   );

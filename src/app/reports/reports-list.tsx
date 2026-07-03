@@ -44,14 +44,14 @@ export function ReportsList({
 
   return (
     <div>
-      <div className="card overflow-hidden">
-        <table className="w-full text-left text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-medium">生成日時</th>
-              <th className="px-4 py-3 font-medium">対象</th>
-              <th className="px-4 py-3 font-medium">種別</th>
-              <th className="px-4 py-3 font-medium">生成者</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">生成日時</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">対象</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">種別</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">生成者</th>
               <th className="px-4 py-3 font-medium">Google Doc</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>

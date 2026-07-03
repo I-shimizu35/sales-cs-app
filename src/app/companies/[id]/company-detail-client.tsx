@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, ArrowLeft, Loader2, Sparkles, AlertCircle, CheckCircle2, Rocket, X } from "lucide-react";
-import { Company, GeneratedReport, ReportType, AppUser } from "@/lib/types";
+import { Company, GeneratedReport, ReportType, AppUser, CompanyNote } from "@/lib/types";
 import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
 import { EmptyState } from "@/components/empty-state";
 import { ClientPortalPanel } from "@/components/client-portal-panel";
 import { SupportTeamPanel } from "@/components/support-team-panel";
+import { CompanyNotesPanel } from "@/components/company-notes-panel";
 import { updateCompany } from "../actions";
 
 type TabType = "basic" | "prep";
@@ -25,6 +26,8 @@ interface Props {
   generatedReports: GeneratedReport[];
   users: AppUser[];
   supporters: { id: string; user_id: string }[];
+  notes: CompanyNote[];
+  userNameById: Record<string, string>;
   currentUserId: string | null;
   canEditCompany: boolean;
   isManagerOrAdmin: boolean;
@@ -37,6 +40,9 @@ export function CompanyDetailClient({
   generatedReports,
   users,
   supporters,
+  notes,
+  userNameById,
+  currentUserId,
   canEditCompany,
   isManagerOrAdmin,
   initialSaved,
@@ -213,7 +219,7 @@ export function CompanyDetailClient({
             )}
             <section className="card p-6">
               <h3 className="mb-4 text-sm font-semibold text-slate-900">企業情報</h3>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
                   <label className="field-label">会社名</label>
                   <input name="name" defaultValue={company.name} required disabled={!canEditCompany} className="field" />
@@ -254,6 +260,20 @@ export function CompanyDetailClient({
                 <div>
                   <label className="field-label">所在地</label>
                   <input name="location" defaultValue={company.location ?? ""} disabled={!canEditCompany} className="field" />
+                </div>
+                <div>
+                  <label className="field-label">通知先メールアドレス</label>
+                  <input
+                    type="email"
+                    name="notification_email"
+                    defaultValue={company.notification_email ?? ""}
+                    disabled={!canEditCompany}
+                    placeholder="client@example.com"
+                    className="field"
+                  />
+                  <p className="mt-1 text-xs text-slate-400">
+                    商談FBが届いた際などにこのアドレスへ通知メールを送信します。未入力の場合は通知しません。
+                  </p>
                 </div>
               </div>
               <div className="mt-6">
@@ -313,6 +333,18 @@ export function CompanyDetailClient({
               supportStatus={company.support_status}
               supporters={supporters}
               users={users}
+            />
+          </div>
+        )}
+
+        {activeTab === "basic" && (
+          <div className="mt-8">
+            <CompanyNotesPanel
+              companyId={company.id}
+              notes={notes}
+              userNameById={userNameById}
+              currentUserId={currentUserId}
+              isManagerOrAdmin={isManagerOrAdmin}
             />
           </div>
         )}

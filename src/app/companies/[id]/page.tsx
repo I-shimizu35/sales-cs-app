@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
-import { Company, GeneratedReport, AppUser } from "@/lib/types";
+import { Company, GeneratedReport, AppUser, CompanyNote } from "@/lib/types";
 import { getCurrentUser, isManagerOrAdmin } from "@/lib/auth";
 import { CompanyDetailClient } from "./company-detail-client";
 
@@ -50,6 +50,17 @@ async function getSupporters(companyId: string): Promise<SupporterRow[]> {
   return data as SupporterRow[];
 }
 
+async function getNotes(companyId: string): Promise<CompanyNote[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("company_notes")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`メモの取得に失敗しました: ${error.message}`);
+  return data as CompanyNote[];
+}
+
 export default async function CompanyDetailPage({
   params,
   searchParams,
@@ -60,16 +71,20 @@ export default async function CompanyDetailPage({
   const company = await getCompany(params.id);
   if (!company) notFound();
 
-  const [generatedReports, users, currentUser, supporters] = await Promise.all([
+  const [generatedReports, users, currentUser, supporters, notes] = await Promise.all([
     getGeneratedReports(company.id),
     getUsers(),
     getCurrentUser(),
     getSupporters(company.id),
+    getNotes(company.id),
   ]);
 
   const canEditCompany =
     !!currentUser &&
     (isManagerOrAdmin(currentUser.role) || company.owner_user_id === currentUser.id);
+
+  const userNameById: Record<string, string> = {};
+  for (const u of users) userNameById[u.id] = u.name;
 
   return (
     <CompanyDetailClient
@@ -77,6 +92,8 @@ export default async function CompanyDetailPage({
       generatedReports={generatedReports}
       users={users}
       supporters={supporters}
+      notes={notes}
+      userNameById={userNameById}
       currentUserId={currentUser?.id ?? null}
       canEditCompany={canEditCompany}
       isManagerOrAdmin={!!currentUser && isManagerOrAdmin(currentUser.role)}

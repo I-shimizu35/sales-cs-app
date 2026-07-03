@@ -161,6 +161,7 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
       support_purpose: formData.get("support_purpose") || null,
       current_issues: formData.get("current_issues") || null,
       goals: formData.get("goals") || null,
+      notification_email: formData.get("notification_email") || null,
       owner_user_id: resolvedOwnerUserId,
     })
     .eq("id", companyId);

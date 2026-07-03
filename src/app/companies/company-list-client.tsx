@@ -124,16 +124,16 @@ export function CompanyListClient({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
                 <tr>
-                  <th className="px-6 py-3.5 font-medium">会社名</th>
-                  <th className="px-6 py-3.5 font-medium">業種</th>
-                  <th className="px-6 py-3.5 font-medium">ステータス</th>
-                  <th className="px-6 py-3.5 font-medium">支援ステータス</th>
-                  <th className="px-6 py-3.5 font-medium">支援担当者</th>
-                  <th className="px-6 py-3.5 font-medium">担当者</th>
-                  <th className="px-6 py-3.5 text-right font-medium"></th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">会社名</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">業種</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">ステータス</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援ステータス</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援担当者</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">担当者</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 text-right font-medium"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -143,7 +143,7 @@ export function CompanyListClient({
                     className="group cursor-pointer transition-colors hover:bg-slate-50"
                     onClick={() => router.push(`/companies/${company.id}`)}
                   >
-                    <td className="px-6 py-3.5">
+                    <td className="whitespace-nowrap px-6 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                           <Building2 className="h-4 w-4" />
@@ -153,25 +153,25 @@ export function CompanyListClient({
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5 text-slate-600">{company.industry ?? "-"}</td>
-                    <td className="px-6 py-3.5">
+                    <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{company.industry ?? "-"}</td>
+                    <td className="whitespace-nowrap px-6 py-3.5">
                       <StatusBadge status={company.deal_status} />
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td className="whitespace-nowrap px-6 py-3.5">
                       <SupportStatusBadge status={company.support_status} />
                     </td>
-                    <td className="px-6 py-3.5 text-slate-600">
+                    <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">
                       {(supporterNamesByCompany[company.id] ?? []).join("、") || (
                         <span className="text-slate-400">未設定</span>
                       )}
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td className="whitespace-nowrap px-6 py-3.5">
                       <div className="flex items-center gap-2 text-slate-600">
                         <User className="h-4 w-4 text-slate-400" />
                         {company.owner?.name ?? "未設定"}
                       </div>
                     </td>
-                    <td className="px-6 py-3.5 text-right">
+                    <td className="whitespace-nowrap px-6 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <Link
                           href={`/companies/${company.id}/workspace/dashboard`}

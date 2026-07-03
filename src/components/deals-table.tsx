@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { ExternalLink, Save, Check, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search } from "lucide-react";
 import { updateDealFields, deleteDeal } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
@@ -46,12 +46,71 @@ export interface DealsTableRow {
   meeting_feedback: string | null;
 }
 
+/** チェックボックスで表示/非表示を切り替えられる列。案件名・ステータス・商談FBは常時表示。 */
+const OPTIONAL_COLUMNS: { key: string; label: string }[] = [
+  { key: "deal_category", label: "案件区分" },
+  { key: "contact_name", label: "担当者名" },
+  { key: "contact_title", label: "役職" },
+  { key: "lead_source", label: "流入経路" },
+  { key: "amount", label: "見積もり金額" },
+  { key: "win_probability", label: "確度(%)" },
+  { key: "expected_revenue", label: "見込み売上" },
+  { key: "first_meeting_date", label: "新規商談日" },
+  { key: "proposal_meeting_date", label: "提案商談日" },
+  { key: "forecast_meeting_date", label: "ヨミ商談日" },
+  { key: "expected_close_date", label: "受注予定日" },
+  { key: "last_contact_date", label: "最終接触日" },
+  { key: "next_action_date", label: "次回アクション日" },
+  { key: "next_meeting_at", label: "次回商談時間" },
+  { key: "elapsed_days", label: "経過日数" },
+  { key: "next_action_title", label: "次回アクション内容" },
+  { key: "customer_issues", label: "顧客(先方)課題" },
+  { key: "proposal_content", label: "提案内容" },
+  { key: "bant_budget", label: "B:予算" },
+  { key: "bant_authority", label: "A:決裁者" },
+  { key: "bant_need", label: "N:必要性" },
+  { key: "bant_timeline", label: "T:時期" },
+  { key: "concerns", label: "懸念点" },
+  { key: "lost_reason", label: "失注理由" },
+  { key: "follow_up_policy", label: "フォロー方針" },
+  { key: "minutes_doc_url", label: "商談議事録" },
+  { key: "first_meeting_video_url", label: "一次商談動画" },
+  { key: "second_meeting_video_url", label: "二次商談動画" },
+  { key: "proposal_doc_url", label: "提案書" },
+  { key: "quote_doc_url", label: "見積もり" },
+];
+const COLUMN_STORAGE_KEY = "deals-table-hidden-columns";
+
 function elapsedDaysLabel(lastContactDate: string | null): string {
   if (!lastContactDate) return "-";
   const diffMs = Date.now() - new Date(lastContactDate).getTime();
   const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   if (days < 0) return "-";
   return `${days}日`;
+}
+
+function cellTextValue(row: DealsTableRow, key: string): string {
+  if (key === "elapsed_days") return elapsedDaysLabel(row.last_contact_date);
+  const value = (row as unknown as Record<string, unknown>)[key];
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+function downloadCsv(filename: string, rows: string[][]): void {
+  const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
+  // ExcelでUTF-8を文字化けさせずに開けるようBOMを付与
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function Cell({ children }: { children: React.ReactNode }) {
@@ -134,6 +193,32 @@ function SaveButton({ formId }: { formId: string }) {
   );
 }
 
+function ColumnVisibilityMenu({ hidden, onToggle }: { hidden: Set<string>; onToggle: (key: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="btn-secondary btn-sm">
+        <Columns3 className="h-3.5 w-3.5" />
+        表示列
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 max-h-80 w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+            {OPTIONAL_COLUMNS.map((col) => (
+              <label key={col.key} className="flex items-center gap-2 rounded px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">
+                <input type="checkbox" checked={!hidden.has(col.key)} onChange={() => onToggle(col.key)} />
+                {col.label}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function DealsTable({
   rows,
   showCompanyColumn,
@@ -143,192 +228,343 @@ export function DealsTable({
   showCompanyColumn: boolean;
   isClient: boolean;
 }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [keyword, setKeyword] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
+
+  useEffect(() => {
+    const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
+    if (stored) {
+      try {
+        setHidden(new Set(JSON.parse(stored) as string[]));
+      } catch {
+        // 破損データは無視してデフォルト(全列表示)のまま
+      }
+    }
+  }, []);
+
+  function toggleColumn(key: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(Array.from(next)));
+      return next;
+    });
+  }
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (stageFilter && row.stage !== stageFilter) return false;
+      if (keyword) {
+        const kw = keyword.toLowerCase();
+        const haystack = [row.title, row.deal_category, row.contact_name, row.customer_issues, row.companyName]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(kw)) return false;
+      }
+      return true;
+    });
+  }, [rows, keyword, stageFilter]);
+
+  function handleExportCsv() {
+    const columns = [
+      { key: "title", label: "案件名" },
+      { key: "stage", label: "案件ステータス" },
+      ...(showCompanyColumn ? [{ key: "companyName", label: "企業名" }] : []),
+      ...OPTIONAL_COLUMNS,
+    ];
+    const header = columns.map((c) => c.label);
+    const body = filteredRows.map((row) =>
+      columns.map((c) => (c.key === "stage" ? DEAL_STAGE_LABEL[row.stage] : cellTextValue(row, c.key)))
+    );
+    downloadCsv(`deals_${new Date().toISOString().slice(0, 10)}.csv`, [header, ...body]);
+  }
+
+  function handleDeleteSubmit(e: React.FormEvent<HTMLFormElement>, title: string) {
+    if (!window.confirm(`案件「${title}」を削除します。この操作は取り消せません。よろしいですか?`)) {
+      e.preventDefault();
+    }
+  }
+
   return (
-    <div className="card overflow-x-auto">
-      <table className="w-full text-left text-xs">
-        <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
-          <tr>
-            <th className="px-2 py-2 font-medium"></th>
-            <th className="px-2 py-2 font-medium">No</th>
-            <th className="px-2 py-2 font-medium">案件名</th>
-            <th className="px-2 py-2 font-medium">案件区分</th>
-            {showCompanyColumn && <th className="px-2 py-2 font-medium">企業名</th>}
-            {showCompanyColumn && <th className="px-2 py-2 font-medium">業種</th>}
-            <th className="px-2 py-2 font-medium">担当者名</th>
-            <th className="px-2 py-2 font-medium">役職</th>
-            <th className="px-2 py-2 font-medium">流入経路</th>
-            <th className="px-2 py-2 font-medium">案件ステータス</th>
-            <th className="px-2 py-2 font-medium">見積もり金額</th>
-            <th className="px-2 py-2 font-medium">確度(%)</th>
-            <th className="px-2 py-2 font-medium">見込み売上</th>
-            <th className="px-2 py-2 font-medium">新規商談日</th>
-            <th className="px-2 py-2 font-medium">提案商談日</th>
-            <th className="px-2 py-2 font-medium">ヨミ商談日</th>
-            <th className="px-2 py-2 font-medium">受注予定日</th>
-            <th className="px-2 py-2 font-medium">最終接触日</th>
-            <th className="px-2 py-2 font-medium">次回アクション日</th>
-            <th className="px-2 py-2 font-medium">次回商談時間</th>
-            <th className="px-2 py-2 font-medium">経過日数</th>
-            <th className="px-2 py-2 font-medium">次回アクション内容</th>
-            <th className="px-2 py-2 font-medium">顧客(先方)課題</th>
-            <th className="px-2 py-2 font-medium">提案内容</th>
-            <th className="px-2 py-2 font-medium">B:予算</th>
-            <th className="px-2 py-2 font-medium">A:決裁者</th>
-            <th className="px-2 py-2 font-medium">N:必要性</th>
-            <th className="px-2 py-2 font-medium">T:時期</th>
-            <th className="px-2 py-2 font-medium">懸念点</th>
-            <th className="px-2 py-2 font-medium">失注理由</th>
-            <th className="px-2 py-2 font-medium">フォロー方針</th>
-            <th className="px-2 py-2 font-medium">商談議事録</th>
-            <th className="px-2 py-2 font-medium">一次商談動画</th>
-            <th className="px-2 py-2 font-medium">二次商談動画</th>
-            <th className="px-2 py-2 font-medium">提案書</th>
-            <th className="px-2 py-2 font-medium">見積もり</th>
-            <th className="px-2 py-2 font-medium">商談FB</th>
-            <th className="px-2 py-2 font-medium"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => {
-            const formId = `deal-form-${row.id}`;
-            return (
-              <tr key={row.id} className="hover:bg-slate-50/60">
-                <Cell>
-                  <form id={formId} data-deal-id={row.id} className="hidden" />
-                  <SaveButton formId={formId} />
-                </Cell>
-                <Cell>{i + 1}</Cell>
-                <Cell>
-                  <TextInput formId={formId} name="title" defaultValue={row.title} disabled={false} wide />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="deal_category" defaultValue={row.deal_category} disabled={false} />
-                </Cell>
-                {showCompanyColumn && (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="案件名・担当者名・課題で検索"
+            className="field-sm w-64 pl-8"
+          />
+        </div>
+        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} className="field-sm w-auto">
+          <option value="">すべてのステータス</option>
+          {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-400">{filteredRows.length}件 / 全{rows.length}件</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={handleExportCsv} className="btn-secondary btn-sm">
+            <Download className="h-3.5 w-3.5" />
+            CSVダウンロード
+          </button>
+          <ColumnVisibilityMenu hidden={hidden} onToggle={toggleColumn} />
+        </div>
+      </div>
+
+      <div className="card overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
+            <tr>
+              <th className="px-2 py-2 font-medium"></th>
+              <th className="px-2 py-2 font-medium">No</th>
+              <th className="px-2 py-2 font-medium">案件名</th>
+              {!hidden.has("deal_category") && <th className="px-2 py-2 font-medium">案件区分</th>}
+              {showCompanyColumn && <th className="px-2 py-2 font-medium">企業名</th>}
+              {showCompanyColumn && <th className="px-2 py-2 font-medium">業種</th>}
+              {!hidden.has("contact_name") && <th className="px-2 py-2 font-medium">担当者名</th>}
+              {!hidden.has("contact_title") && <th className="px-2 py-2 font-medium">役職</th>}
+              {!hidden.has("lead_source") && <th className="px-2 py-2 font-medium">流入経路</th>}
+              <th className="px-2 py-2 font-medium">案件ステータス</th>
+              {!hidden.has("amount") && <th className="px-2 py-2 font-medium">見積もり金額</th>}
+              {!hidden.has("win_probability") && <th className="px-2 py-2 font-medium">確度(%)</th>}
+              {!hidden.has("expected_revenue") && <th className="px-2 py-2 font-medium">見込み売上</th>}
+              {!hidden.has("first_meeting_date") && <th className="px-2 py-2 font-medium">新規商談日</th>}
+              {!hidden.has("proposal_meeting_date") && <th className="px-2 py-2 font-medium">提案商談日</th>}
+              {!hidden.has("forecast_meeting_date") && <th className="px-2 py-2 font-medium">ヨミ商談日</th>}
+              {!hidden.has("expected_close_date") && <th className="px-2 py-2 font-medium">受注予定日</th>}
+              {!hidden.has("last_contact_date") && <th className="px-2 py-2 font-medium">最終接触日</th>}
+              {!hidden.has("next_action_date") && <th className="px-2 py-2 font-medium">次回アクション日</th>}
+              {!hidden.has("next_meeting_at") && <th className="px-2 py-2 font-medium">次回商談時間</th>}
+              {!hidden.has("elapsed_days") && <th className="px-2 py-2 font-medium">経過日数</th>}
+              {!hidden.has("next_action_title") && <th className="px-2 py-2 font-medium">次回アクション内容</th>}
+              {!hidden.has("customer_issues") && <th className="px-2 py-2 font-medium">顧客(先方)課題</th>}
+              {!hidden.has("proposal_content") && <th className="px-2 py-2 font-medium">提案内容</th>}
+              {!hidden.has("bant_budget") && <th className="px-2 py-2 font-medium">B:予算</th>}
+              {!hidden.has("bant_authority") && <th className="px-2 py-2 font-medium">A:決裁者</th>}
+              {!hidden.has("bant_need") && <th className="px-2 py-2 font-medium">N:必要性</th>}
+              {!hidden.has("bant_timeline") && <th className="px-2 py-2 font-medium">T:時期</th>}
+              {!hidden.has("concerns") && <th className="px-2 py-2 font-medium">懸念点</th>}
+              {!hidden.has("lost_reason") && <th className="px-2 py-2 font-medium">失注理由</th>}
+              {!hidden.has("follow_up_policy") && <th className="px-2 py-2 font-medium">フォロー方針</th>}
+              {!hidden.has("minutes_doc_url") && <th className="px-2 py-2 font-medium">商談議事録</th>}
+              {!hidden.has("first_meeting_video_url") && <th className="px-2 py-2 font-medium">一次商談動画</th>}
+              {!hidden.has("second_meeting_video_url") && <th className="px-2 py-2 font-medium">二次商談動画</th>}
+              {!hidden.has("proposal_doc_url") && <th className="px-2 py-2 font-medium">提案書</th>}
+              {!hidden.has("quote_doc_url") && <th className="px-2 py-2 font-medium">見積もり</th>}
+              <th className="px-2 py-2 font-medium">商談FB</th>
+              <th className="px-2 py-2 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.map((row, i) => {
+              const formId = `deal-form-${row.id}`;
+              return (
+                <tr key={row.id} className="hover:bg-slate-50/60">
                   <Cell>
-                    <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
-                      {row.companyName}
-                    </Link>
+                    <form id={formId} data-deal-id={row.id} className="hidden" />
+                    <SaveButton formId={formId} />
                   </Cell>
-                )}
-                {showCompanyColumn && <Cell>{row.companyIndustry ?? "-"}</Cell>}
-                <Cell>
-                  <TextInput formId={formId} name="contact_name" defaultValue={row.contact_name} disabled={false} />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="contact_title" defaultValue={row.contact_title} disabled={false} />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="lead_source" defaultValue={row.lead_source} disabled={false} />
-                </Cell>
-                <Cell>
-                  <select form={formId} name="stage" defaultValue={row.stage} className="field-sm w-28">
-                    {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Cell>
-                <Cell>
-                  <NumberInput formId={formId} name="amount" defaultValue={row.amount} />
-                </Cell>
-                <Cell>
-                  <NumberInput formId={formId} name="win_probability" defaultValue={row.win_probability} />
-                </Cell>
-                <Cell>
-                  <NumberInput formId={formId} name="expected_revenue" defaultValue={row.expected_revenue} />
-                </Cell>
-                <Cell>
-                  <DateInput formId={formId} name="first_meeting_date" defaultValue={row.first_meeting_date} />
-                </Cell>
-                <Cell>
-                  <DateInput formId={formId} name="proposal_meeting_date" defaultValue={row.proposal_meeting_date} />
-                </Cell>
-                <Cell>
-                  <DateInput formId={formId} name="forecast_meeting_date" defaultValue={row.forecast_meeting_date} />
-                </Cell>
-                <Cell>
-                  <DateInput formId={formId} name="expected_close_date" defaultValue={row.expected_close_date} />
-                </Cell>
-                <Cell>
-                  <DateInput formId={formId} name="last_contact_date" defaultValue={row.last_contact_date} />
-                </Cell>
-                <Cell>
-                  <span className="text-slate-500">{row.next_action_date ?? "-"}</span>
-                </Cell>
-                <Cell>
-                  <DatetimeInput formId={formId} name="next_meeting_at" defaultValue={row.next_meeting_at} />
-                </Cell>
-                <Cell>
-                  <span className="text-slate-500">{elapsedDaysLabel(row.last_contact_date)}</span>
-                </Cell>
-                <Cell>
-                  <span className="text-slate-500">{row.next_action_title ?? "-"}</span>
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="customer_issues" defaultValue={row.customer_issues} disabled={false} wide />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="proposal_content" defaultValue={row.proposal_content} disabled={false} wide />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="bant_budget" defaultValue={row.bant_budget} disabled={false} />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="bant_authority" defaultValue={row.bant_authority} disabled={false} />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="bant_need" defaultValue={row.bant_need} disabled={false} />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="bant_timeline" defaultValue={row.bant_timeline} disabled={false} />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="concerns" defaultValue={row.concerns} disabled={false} wide />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="lost_reason" defaultValue={row.lost_reason} disabled={false} wide />
-                </Cell>
-                <Cell>
-                  <TextInput formId={formId} name="follow_up_policy" defaultValue={row.follow_up_policy} disabled={false} wide />
-                </Cell>
-                <Cell>
-                  <UrlInput formId={formId} name="minutes_doc_url" defaultValue={row.minutes_doc_url} />
-                </Cell>
-                <Cell>
-                  <UrlInput formId={formId} name="first_meeting_video_url" defaultValue={row.first_meeting_video_url} />
-                </Cell>
-                <Cell>
-                  <UrlInput formId={formId} name="second_meeting_video_url" defaultValue={row.second_meeting_video_url} />
-                </Cell>
-                <Cell>
-                  <UrlInput formId={formId} name="proposal_doc_url" defaultValue={row.proposal_doc_url} />
-                </Cell>
-                <Cell>
-                  <UrlInput formId={formId} name="quote_doc_url" defaultValue={row.quote_doc_url} />
-                </Cell>
-                <Cell>
-                  <TextInput
-                    formId={formId}
-                    name="meeting_feedback"
-                    defaultValue={row.meeting_feedback}
-                    disabled={isClient}
-                    wide
-                  />
-                </Cell>
-                <Cell>
-                  <form action={deleteDeal.bind(null, row.id)}>
-                    <button type="submit" className="text-slate-400 hover:text-red-600" title="この案件を削除">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </form>
-                </Cell>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  <Cell>{i + 1}</Cell>
+                  <Cell>
+                    <TextInput formId={formId} name="title" defaultValue={row.title} disabled={false} wide />
+                  </Cell>
+                  {!hidden.has("deal_category") && (
+                    <Cell>
+                      <TextInput formId={formId} name="deal_category" defaultValue={row.deal_category} disabled={false} />
+                    </Cell>
+                  )}
+                  {showCompanyColumn && (
+                    <Cell>
+                      <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
+                        {row.companyName}
+                      </Link>
+                    </Cell>
+                  )}
+                  {showCompanyColumn && <Cell>{row.companyIndustry ?? "-"}</Cell>}
+                  {!hidden.has("contact_name") && (
+                    <Cell>
+                      <TextInput formId={formId} name="contact_name" defaultValue={row.contact_name} disabled={false} />
+                    </Cell>
+                  )}
+                  {!hidden.has("contact_title") && (
+                    <Cell>
+                      <TextInput formId={formId} name="contact_title" defaultValue={row.contact_title} disabled={false} />
+                    </Cell>
+                  )}
+                  {!hidden.has("lead_source") && (
+                    <Cell>
+                      <TextInput formId={formId} name="lead_source" defaultValue={row.lead_source} disabled={false} />
+                    </Cell>
+                  )}
+                  <Cell>
+                    <select form={formId} name="stage" defaultValue={row.stage} className="field-sm w-28">
+                      {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </Cell>
+                  {!hidden.has("amount") && (
+                    <Cell>
+                      <NumberInput formId={formId} name="amount" defaultValue={row.amount} />
+                    </Cell>
+                  )}
+                  {!hidden.has("win_probability") && (
+                    <Cell>
+                      <NumberInput formId={formId} name="win_probability" defaultValue={row.win_probability} />
+                    </Cell>
+                  )}
+                  {!hidden.has("expected_revenue") && (
+                    <Cell>
+                      <NumberInput formId={formId} name="expected_revenue" defaultValue={row.expected_revenue} />
+                    </Cell>
+                  )}
+                  {!hidden.has("first_meeting_date") && (
+                    <Cell>
+                      <DateInput formId={formId} name="first_meeting_date" defaultValue={row.first_meeting_date} />
+                    </Cell>
+                  )}
+                  {!hidden.has("proposal_meeting_date") && (
+                    <Cell>
+                      <DateInput formId={formId} name="proposal_meeting_date" defaultValue={row.proposal_meeting_date} />
+                    </Cell>
+                  )}
+                  {!hidden.has("forecast_meeting_date") && (
+                    <Cell>
+                      <DateInput formId={formId} name="forecast_meeting_date" defaultValue={row.forecast_meeting_date} />
+                    </Cell>
+                  )}
+                  {!hidden.has("expected_close_date") && (
+                    <Cell>
+                      <DateInput formId={formId} name="expected_close_date" defaultValue={row.expected_close_date} />
+                    </Cell>
+                  )}
+                  {!hidden.has("last_contact_date") && (
+                    <Cell>
+                      <DateInput formId={formId} name="last_contact_date" defaultValue={row.last_contact_date} />
+                    </Cell>
+                  )}
+                  {!hidden.has("next_action_date") && (
+                    <Cell>
+                      <span className="text-slate-500">{row.next_action_date ?? "-"}</span>
+                    </Cell>
+                  )}
+                  {!hidden.has("next_meeting_at") && (
+                    <Cell>
+                      <DatetimeInput formId={formId} name="next_meeting_at" defaultValue={row.next_meeting_at} />
+                    </Cell>
+                  )}
+                  {!hidden.has("elapsed_days") && (
+                    <Cell>
+                      <span className="text-slate-500">{elapsedDaysLabel(row.last_contact_date)}</span>
+                    </Cell>
+                  )}
+                  {!hidden.has("next_action_title") && (
+                    <Cell>
+                      <span className="text-slate-500">{row.next_action_title ?? "-"}</span>
+                    </Cell>
+                  )}
+                  {!hidden.has("customer_issues") && (
+                    <Cell>
+                      <TextInput formId={formId} name="customer_issues" defaultValue={row.customer_issues} disabled={false} wide />
+                    </Cell>
+                  )}
+                  {!hidden.has("proposal_content") && (
+                    <Cell>
+                      <TextInput formId={formId} name="proposal_content" defaultValue={row.proposal_content} disabled={false} wide />
+                    </Cell>
+                  )}
+                  {!hidden.has("bant_budget") && (
+                    <Cell>
+                      <TextInput formId={formId} name="bant_budget" defaultValue={row.bant_budget} disabled={false} />
+                    </Cell>
+                  )}
+                  {!hidden.has("bant_authority") && (
+                    <Cell>
+                      <TextInput formId={formId} name="bant_authority" defaultValue={row.bant_authority} disabled={false} />
+                    </Cell>
+                  )}
+                  {!hidden.has("bant_need") && (
+                    <Cell>
+                      <TextInput formId={formId} name="bant_need" defaultValue={row.bant_need} disabled={false} />
+                    </Cell>
+                  )}
+                  {!hidden.has("bant_timeline") && (
+                    <Cell>
+                      <TextInput formId={formId} name="bant_timeline" defaultValue={row.bant_timeline} disabled={false} />
+                    </Cell>
+                  )}
+                  {!hidden.has("concerns") && (
+                    <Cell>
+                      <TextInput formId={formId} name="concerns" defaultValue={row.concerns} disabled={false} wide />
+                    </Cell>
+                  )}
+                  {!hidden.has("lost_reason") && (
+                    <Cell>
+                      <TextInput formId={formId} name="lost_reason" defaultValue={row.lost_reason} disabled={false} wide />
+                    </Cell>
+                  )}
+                  {!hidden.has("follow_up_policy") && (
+                    <Cell>
+                      <TextInput formId={formId} name="follow_up_policy" defaultValue={row.follow_up_policy} disabled={false} wide />
+                    </Cell>
+                  )}
+                  {!hidden.has("minutes_doc_url") && (
+                    <Cell>
+                      <UrlInput formId={formId} name="minutes_doc_url" defaultValue={row.minutes_doc_url} />
+                    </Cell>
+                  )}
+                  {!hidden.has("first_meeting_video_url") && (
+                    <Cell>
+                      <UrlInput formId={formId} name="first_meeting_video_url" defaultValue={row.first_meeting_video_url} />
+                    </Cell>
+                  )}
+                  {!hidden.has("second_meeting_video_url") && (
+                    <Cell>
+                      <UrlInput formId={formId} name="second_meeting_video_url" defaultValue={row.second_meeting_video_url} />
+                    </Cell>
+                  )}
+                  {!hidden.has("proposal_doc_url") && (
+                    <Cell>
+                      <UrlInput formId={formId} name="proposal_doc_url" defaultValue={row.proposal_doc_url} />
+                    </Cell>
+                  )}
+                  {!hidden.has("quote_doc_url") && (
+                    <Cell>
+                      <UrlInput formId={formId} name="quote_doc_url" defaultValue={row.quote_doc_url} />
+                    </Cell>
+                  )}
+                  <Cell>
+                    <TextInput
+                      formId={formId}
+                      name="meeting_feedback"
+                      defaultValue={row.meeting_feedback}
+                      disabled={isClient}
+                      wide
+                    />
+                  </Cell>
+                  <Cell>
+                    <form action={deleteDeal.bind(null, row.id)} onSubmit={(e) => handleDeleteSubmit(e, row.title)}>
+                      <button type="submit" className="text-slate-400 hover:text-red-600" title="この案件を削除">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  </Cell>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

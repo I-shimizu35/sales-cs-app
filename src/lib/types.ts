@@ -36,6 +36,7 @@ export interface Company {
   created_by: string | null;
   client_login_slug: string | null;
   client_portal_enabled: boolean;
+  notification_email: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -147,6 +148,14 @@ export interface CompanySupporter {
   id: string;
   company_id: string;
   user_id: string;
+  created_at: string;
+}
+
+export interface CompanyNote {
+  id: string;
+  company_id: string;
+  user_id: string | null;
+  body: string;
   created_at: string;
 }
 

@@ -13,7 +13,7 @@ export default async function ClientPortalLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
       <ClientPortalNav />
       <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
     </div>

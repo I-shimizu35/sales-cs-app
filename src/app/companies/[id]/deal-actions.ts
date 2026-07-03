@@ -55,8 +55,8 @@ function userIdOfActor(actor: CurrentActor): string | null {
 }
 
 /**
- * 案件が「初回接触より先の商談段階まで進んだ末に失注した」場合のみ、リードとして自動登録する。
- * updateDealStage / updateDealFields の両方から呼ばれる共通ロジック。
+ * 案件が失注(lost)になった場合、リードとして自動登録する。
+ * updateDealFields から呼ばれる。既にlostだった場合(再保存等)は重複登録を避けるためスキップする。
  * 案件管理表に既に入力済みの内容(顧客課題・提案内容・失注理由・最終接触日等)を引き継ぎ、
  * リード側での再入力(二度手間)を避ける。
  */
@@ -72,7 +72,7 @@ async function maybeAutoCreateLeadFromLostDeal(
   }
 ): Promise<void> {
   if (params.newStage !== "lost") return;
-  if (params.previousStage === "first_contact" || params.previousStage === "lost") return;
+  if (params.previousStage === "lost") return;
 
   const [{ data: company }, { data: deal }] = await Promise.all([
     supabase.from("companies").select("name").eq("id", params.companyId).maybeSingle(),

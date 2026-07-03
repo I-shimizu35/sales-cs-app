@@ -32,14 +32,14 @@ export default async function AdminUsersPage() {
         </p>
       </div>
 
-      <div className="card mb-8 overflow-hidden">
-        <table className="w-full text-left text-sm">
+      <div className="card mb-8 overflow-x-auto">
+        <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
             <tr>
-              <th className="px-6 py-3 font-medium">氏名</th>
-              <th className="px-6 py-3 font-medium">メールアドレス</th>
-              <th className="px-6 py-3 font-medium">ロール</th>
-              <th className="px-6 py-3 font-medium">ステータス</th>
+              <th className="whitespace-nowrap px-6 py-3 font-medium">氏名</th>
+              <th className="whitespace-nowrap px-6 py-3 font-medium">メールアドレス</th>
+              <th className="whitespace-nowrap px-6 py-3 font-medium">ロール</th>
+              <th className="whitespace-nowrap px-6 py-3 font-medium">ステータス</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

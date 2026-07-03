@@ -22,6 +22,13 @@ interface UpcomingActionRow {
   companyName: string;
 }
 
+interface SupporterWorkloadRow {
+  userId: string;
+  name: string;
+  activeCount: number;
+  totalCount: number;
+}
+
 async function getClientRoster(): Promise<ClientRosterRow[]> {
   const supabase = createServerClient();
 
@@ -51,6 +58,25 @@ async function getClientRoster(): Promise<ClientRosterRow[]> {
   }));
 }
 
+async function getSupporterWorkload(): Promise<SupporterWorkloadRow[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("company_supporters")
+    .select("user_id, users(id, name), companies(support_status)");
+  if (error) throw new Error(`支援担当者の集計に失敗しました: ${error.message}`);
+
+  const byUser: Record<string, SupporterWorkloadRow> = {};
+  for (const row of (data ?? []) as any[]) {
+    const userId = row.user_id;
+    const name = row.users?.name ?? "(不明)";
+    if (!byUser[userId]) byUser[userId] = { userId, name, activeCount: 0, totalCount: 0 };
+    byUser[userId].totalCount += 1;
+    if (row.companies?.support_status === "active") byUser[userId].activeCount += 1;
+  }
+
+  return Object.values(byUser).sort((a, b) => b.activeCount - a.activeCount);
+}
+
 async function getUpcomingActions(): Promise<UpcomingActionRow[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
@@ -73,7 +99,11 @@ async function getUpcomingActions(): Promise<UpcomingActionRow[]> {
 }
 
 export default async function DashboardPage() {
-  const [roster, upcomingActions] = await Promise.all([getClientRoster(), getUpcomingActions()]);
+  const [roster, upcomingActions, supporterWorkload] = await Promise.all([
+    getClientRoster(),
+    getUpcomingActions(),
+    getSupporterWorkload(),
+  ]);
   const activeCount = roster.filter((c) => c.support_status === "active").length;
   const today = new Date();
 
@@ -103,6 +133,35 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {supporterWorkload.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Users className="h-4 w-4 text-brand-600" />
+            担当者別の支援中クライアント数
+          </h2>
+          <div className="card overflow-x-auto">
+            <table className="w-full min-w-[420px] text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
+                <tr>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium">担当者</th>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium">支援中</th>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium">担当合計</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {supporterWorkload.map((s) => (
+                  <tr key={s.userId} className="hover:bg-slate-50/60">
+                    <td className="whitespace-nowrap px-6 py-2.5 font-medium text-slate-900">{s.name}</td>
+                    <td className="whitespace-nowrap px-6 py-2.5 text-slate-600">{s.activeCount}社</td>
+                    <td className="whitespace-nowrap px-6 py-2.5 text-slate-400">{s.totalCount}社</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {upcomingActions.length > 0 && (
         <div className="mb-8">
@@ -140,33 +199,33 @@ export default async function DashboardPage() {
       {roster.length === 0 ? (
         <EmptyState icon={Building2} title="まだクライアントが登録されていません" />
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-left text-sm">
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
               <tr>
-                <th className="px-6 py-3.5 font-medium">クライアント名</th>
-                <th className="px-6 py-3.5 font-medium">支援ステータス</th>
-                <th className="px-6 py-3.5 font-medium">支援担当者</th>
-                <th className="px-6 py-3.5 text-right font-medium"></th>
+                <th className="whitespace-nowrap px-6 py-3.5 font-medium">クライアント名</th>
+                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援ステータス</th>
+                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援担当者</th>
+                <th className="whitespace-nowrap px-6 py-3.5 text-right font-medium"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {roster.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50/60">
-                  <td className="px-6 py-3.5">
+                  <td className="whitespace-nowrap px-6 py-3.5">
                     <Link href={`/companies/${c.id}`} className="font-medium text-slate-900 hover:text-brand-600">
                       {c.name}
                     </Link>
                   </td>
-                  <td className="px-6 py-3.5">
+                  <td className="whitespace-nowrap px-6 py-3.5">
                     <span className={`badge ${SUPPORT_STATUS_BADGE_CLASS[c.support_status]}`}>
                       {SUPPORT_STATUS_LABEL[c.support_status]}
                     </span>
                   </td>
-                  <td className="px-6 py-3.5 text-slate-600">
+                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">
                     {c.supporterNames.length > 0 ? c.supporterNames.join("、") : <span className="text-slate-400">未設定</span>}
                   </td>
-                  <td className="px-6 py-3.5 text-right">
+                  <td className="whitespace-nowrap px-6 py-3.5 text-right">
                     <Link
                       href={`/companies/${c.id}/workspace/dashboard`}
                       className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"

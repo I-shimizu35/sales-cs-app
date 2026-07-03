@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabase";
 import { AppUser } from "@/lib/types";
+import { getCurrentUser } from "@/lib/auth";
 import { createUser, updateUserRole, updateUserStatus } from "./actions";
 import { RoleSelect, StatusSelect } from "./role-status-select";
 
@@ -21,7 +22,7 @@ async function getUsers(): Promise<AppUser[]> {
 }
 
 export default async function AdminUsersPage() {
-  const users = await getUsers();
+  const [users, currentUser] = await Promise.all([getUsers(), getCurrentUser()]);
 
   return (
     <div>
@@ -53,15 +54,31 @@ export default async function AdminUsersPage() {
             {users.map((u) => {
               const updateRoleWithId = updateUserRole.bind(null, u.id);
               const updateStatusWithId = updateUserStatus.bind(null, u.id);
+              const isSelf = u.id === currentUser?.id;
               return (
                 <tr key={u.id} className="transition-colors hover:bg-slate-50/60">
-                  <td className="px-6 py-3 font-medium text-slate-900">{u.name}</td>
+                  <td className="px-6 py-3 font-medium text-slate-900">
+                    {u.name}
+                    {isSelf && <span className="ml-2 text-xs text-slate-400">(自分)</span>}
+                  </td>
                   <td className="px-6 py-3 text-slate-600">{u.email}</td>
                   <td className="px-6 py-3">
-                    <RoleSelect action={updateRoleWithId} defaultValue={u.role} />
+                    {isSelf ? (
+                      <span className="field-sm inline-block w-auto py-1 text-slate-400">
+                        {ROLE_LABEL[u.role]}
+                      </span>
+                    ) : (
+                      <RoleSelect action={updateRoleWithId} defaultValue={u.role} />
+                    )}
                   </td>
                   <td className="px-6 py-3">
-                    <StatusSelect action={updateStatusWithId} defaultValue={u.status} />
+                    {isSelf ? (
+                      <span className="field-sm inline-block w-auto py-1 text-slate-400">
+                        {u.status === "active" ? "有効" : "無効"}
+                      </span>
+                    ) : (
+                      <StatusSelect action={updateStatusWithId} defaultValue={u.status} />
+                    )}
                   </td>
                 </tr>
               );

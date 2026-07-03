@@ -4,13 +4,39 @@ import { callClaudeJson, ClaudeJsonParseError } from "@/lib/claude";
 import { getPromptTemplate } from "@/lib/prompts";
 import { recordAuditLog } from "@/lib/audit";
 import { ReportType } from "@/lib/types";
-import { getCurrentUserId } from "@/lib/auth";
+import { getCurrentUserId, assertOwnerOrManager } from "@/lib/auth";
 
 interface GenerateRequestBody {
   targetType: "company" | "deal" | "meeting";
   targetId: string;
   reportType: ReportType;
   variables: Record<string, unknown>;
+}
+
+/**
+ * targetType/targetIdからowner_user_idを解決し、担当者本人またはadmin/managerのみに制限する。
+ * meetingはdeal経由でownerを辿る。
+ */
+async function assertCanGenerateForTarget(
+  supabase: ReturnType<typeof createServerClient>,
+  targetType: GenerateRequestBody["targetType"],
+  targetId: string
+): Promise<void> {
+  if (targetType === "company") {
+    const { data } = await supabase.from("companies").select("owner_user_id").eq("id", targetId).maybeSingle();
+    await assertOwnerOrManager(data?.owner_user_id ?? null, "企業");
+    return;
+  }
+  if (targetType === "deal") {
+    const { data } = await supabase.from("deals").select("owner_user_id").eq("id", targetId).maybeSingle();
+    await assertOwnerOrManager(data?.owner_user_id ?? null, "案件");
+    return;
+  }
+  const { data: meeting } = await supabase.from("meetings").select("deal_id").eq("id", targetId).maybeSingle();
+  const { data: deal } = meeting
+    ? await supabase.from("deals").select("owner_user_id").eq("id", meeting.deal_id).maybeSingle()
+    : { data: null };
+  await assertOwnerOrManager(deal?.owner_user_id ?? null, "商談");
 }
 
 export async function POST(req: NextRequest) {
@@ -27,6 +53,13 @@ export async function POST(req: NextRequest) {
       { error: "targetType, targetId, reportType は必須です。" },
       { status: 400 }
     );
+  }
+
+  const scopeCheckSupabase = createServerClient();
+  try {
+    await assertCanGenerateForTarget(scopeCheckSupabase, targetType, targetId);
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
   }
 
   let template: string;

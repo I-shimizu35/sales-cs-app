@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
 import { recordAuditLog } from "@/lib/audit";
-import { getCurrentUserId } from "@/lib/auth";
+import { assertOwnerOrManager } from "@/lib/auth";
 
 export async function createTranscript(formData: FormData): Promise<void> {
   const dealId = formData.get("deal_id");
@@ -19,7 +19,17 @@ export async function createTranscript(formData: FormData): Promise<void> {
   }
 
   const supabase = createServerClient();
-  const userId = await getCurrentUserId();
+
+  const { data: deal, error: dealError } = await supabase
+    .from("deals")
+    .select("owner_user_id")
+    .eq("id", dealId)
+    .single();
+  if (dealError || !deal) {
+    throw new Error(`案件情報の取得に失敗しました: ${dealError?.message ?? ""}`);
+  }
+  const currentUser = await assertOwnerOrManager(deal.owner_user_id, "案件");
+  const userId = currentUser.id;
 
   // 1. 商談(meeting)を作成
   const { data: meeting, error: meetingError } = await supabase

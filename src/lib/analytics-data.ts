@@ -78,8 +78,10 @@ export async function getAnalyticsData(filter: {
     count: filtered.filter((d) => d.stage === stage).length,
   }));
 
-  // ヨミ = まだ受注/失注していない(進行中の)案件
-  const yomiDeals = filtered.filter((d) => d.stage !== "won" && d.stage !== "lost");
+  // ヨミ件数・見込み受注は「現時点で進行中の案件」を表すスナップショット指標のため、
+  // 対象月(新規商談日基準)フィルタの影響を受けない(=常にallから集計する)。
+  // 月フィルタをかけると新規商談日が未入力の案件が集計から漏れてしまうため。
+  const yomiDeals = all.filter((d) => d.stage !== "won" && d.stage !== "lost");
   const yomiSummary: YomiSummary = {
     yomiCount: yomiDeals.length,
     expectedRevenueTotal: yomiDeals.reduce((sum, d) => sum + (d.expected_revenue ?? d.amount ?? 0), 0),

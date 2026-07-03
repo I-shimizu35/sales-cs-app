@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { createServerClient } from "@/lib/supabase";
 import { ReportType } from "@/lib/types";
 import { REPORT_TYPE_LABEL } from "@/lib/status";
+import { getAccessibleCompanyIds } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { ReportsSearchClient } from "./reports-search-client";
 import { ReportsList, ReportListItem } from "./reports-list";
@@ -29,12 +30,54 @@ interface SearchParams {
   page?: string;
 }
 
-function applyFilters<T>(query: T, params: SearchParams): T {
+interface ScopeIds {
+  companyIds: string[];
+  dealIds: string[];
+  meetingIds: string[];
+}
+
+/**
+ * admin/manager以外は自分の担当企業に紐づくレポート(company/deal/meeting)のみに絞り込む。
+ * generated_reportsのtarget_typeはポリモーフィックなため、種別ごとにIDリストを用意し
+ * .or()でtarget_type別のIN条件を組み立てる。担当企業が0件の場合はマッチしないid条件を返す。
+ */
+async function resolveScope(supabase: ReturnType<typeof createServerClient>): Promise<ScopeIds | null> {
+  const accessibleCompanyIds = await getAccessibleCompanyIds(supabase);
+  if (accessibleCompanyIds === null) return null; // admin/manager: 制限なし
+
+  if (accessibleCompanyIds.length === 0) {
+    return { companyIds: [], dealIds: [], meetingIds: [] };
+  }
+
+  const { data: deals } = await supabase.from("deals").select("id").in("company_id", accessibleCompanyIds);
+  const dealIds = (deals ?? []).map((d) => d.id);
+
+  let meetingIds: string[] = [];
+  if (dealIds.length > 0) {
+    const { data: meetings } = await supabase.from("meetings").select("id").in("deal_id", dealIds);
+    meetingIds = (meetings ?? []).map((m) => m.id);
+  }
+
+  return { companyIds: accessibleCompanyIds, dealIds, meetingIds };
+}
+
+function scopeOrFilter(scope: ScopeIds): string {
+  const NEVER_MATCH = "00000000-0000-0000-0000-000000000000";
+  const clauses = [
+    `and(target_type.eq.company,target_id.in.(${scope.companyIds.length ? scope.companyIds.join(",") : NEVER_MATCH}))`,
+    `and(target_type.eq.deal,target_id.in.(${scope.dealIds.length ? scope.dealIds.join(",") : NEVER_MATCH}))`,
+    `and(target_type.eq.meeting,target_id.in.(${scope.meetingIds.length ? scope.meetingIds.join(",") : NEVER_MATCH}))`,
+  ];
+  return clauses.join(",");
+}
+
+function applyFilters<T>(query: T, params: SearchParams, scope: ScopeIds | null): T {
   let q = query as any;
   if (params.targetType) q = q.eq("target_type", params.targetType);
   if (params.reportType) q = q.eq("report_type", params.reportType);
   if (params.dateFrom) q = q.gte("created_at", `${params.dateFrom}T00:00:00`);
   if (params.dateTo) q = q.lte("created_at", `${params.dateTo}T23:59:59`);
+  if (scope) q = q.or(scopeOrFilter(scope));
   return q;
 }
 
@@ -42,6 +85,7 @@ async function getReports(
   params: SearchParams
 ): Promise<{ reports: RawReport[]; total: number; page: number; pageCount: number }> {
   const supabase = createServerClient();
+  const scope = await resolveScope(supabase);
   const requestedPage = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
   // 件数を先に確認し、ページ番号が総ページ数を超えないようclampする
@@ -49,7 +93,8 @@ async function getReports(
   // 416 Requested range not satisfiableで例外になるため)
   const countQuery = applyFilters(
     supabase.from("generated_reports").select("id", { count: "exact", head: true }),
-    params
+    params,
+    scope
   );
   const { count: totalCount, error: countError } = await countQuery;
   if (countError) throw new Error(`生成履歴の取得に失敗しました: ${countError.message}`);
@@ -71,7 +116,8 @@ async function getReports(
       .select("id, target_type, target_id, report_type, content, google_doc_url, generated_by, created_at")
       .order("created_at", { ascending: false })
       .range(from, to),
-    params
+    params,
+    scope
   );
   const { data, error } = await dataQuery;
   if (error) throw new Error(`生成履歴の取得に失敗しました: ${error.message}`);

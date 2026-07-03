@@ -5,7 +5,7 @@ import { callClaudeJson, ClaudeJsonParseError } from "@/lib/claude";
 import { getPromptTemplate } from "@/lib/prompts";
 import { recordAuditLog } from "@/lib/audit";
 import { ReportType } from "@/lib/types";
-import { getCurrentUserId } from "@/lib/auth";
+import { getCurrentUserId, assertOwnerOrManager } from "@/lib/auth";
 
 interface RequestBody {
   transcriptId: string;
@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
       { error: `案件情報が見つかりません: ${dealError?.message ?? ""}` },
       { status: 404 }
     );
+  }
+
+  try {
+    await assertOwnerOrManager(deal.owner_user_id, "案件");
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
   }
 
   const { count: meetingCount } = await supabase

@@ -44,6 +44,9 @@ export async function createUser(formData: FormData): Promise<void> {
 
 export async function updateUserRole(userId: string, formData: FormData): Promise<void> {
   const currentUser = await requireAdminOrManager();
+  if (userId === currentUser.id) {
+    throw new Error("自分自身のロールは変更できません。他の管理者に依頼してください。");
+  }
 
   const role = formData.get("role");
   if (typeof role !== "string" || !ROLES.includes(role as UserRole)) {
@@ -69,6 +72,9 @@ export async function updateUserRole(userId: string, formData: FormData): Promis
 
 export async function updateUserStatus(userId: string, formData: FormData): Promise<void> {
   const currentUser = await requireAdminOrManager();
+  if (userId === currentUser.id) {
+    throw new Error("自分自身のステータスは変更できません。他の管理者に依頼してください。");
+  }
 
   const status = formData.get("status");
   if (typeof status !== "string" || !["active", "inactive"].includes(status)) {

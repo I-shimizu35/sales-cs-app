@@ -81,6 +81,23 @@ export async function getCurrentActor(): Promise<CurrentActor | null> {
 }
 
 /**
+ * 現在のスタッフが閲覧・操作できる企業IDの一覧を返す。
+ * admin/managerはnull(=全件アクセス可)を返す。それ以外はowner_user_idが一致する企業のみ。
+ * 文字起こし・AI生成・生成履歴など、企業横断で一覧表示する画面のスコープ制御に使う。
+ */
+export async function getAccessibleCompanyIds(
+  supabase: import("@supabase/supabase-js").SupabaseClient
+): Promise<string[] | null> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  if (isManagerOrAdmin(user.role)) return null;
+
+  const { data, error } = await supabase.from("companies").select("id").eq("owner_user_id", user.id);
+  if (error) throw new Error(`アクセス可能な企業の取得に失敗しました: ${error.message}`);
+  return (data ?? []).map((c) => c.id);
+}
+
+/**
  * deals/leadsなど「社内担当者(owner_user_id) or 自社データを閲覧するクライアント(company_id一致)」
  * のどちらからも編集され得るレコード用の権限チェック。
  * 社内側の判定基準は既存のassertOwnerOrManagerと同じ(admin/manager無条件、それ以外はowner本人のみ)。

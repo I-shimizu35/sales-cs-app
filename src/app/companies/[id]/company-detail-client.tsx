@@ -331,6 +331,7 @@ export function CompanyDetailClient({
             <SupportTeamPanel
               companyId={company.id}
               supportStatus={company.support_status}
+              supportPhase={company.support_phase}
               supporters={supporters}
               users={users}
             />

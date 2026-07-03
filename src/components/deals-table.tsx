@@ -44,6 +44,7 @@ export interface DealsTableRow {
   proposal_doc_url: string | null;
   quote_doc_url: string | null;
   meeting_feedback: string | null;
+  roleplay_conducted_at: string | null;
 }
 
 /** チェックボックスで表示/非表示を切り替えられる列。案件名・ステータス・商談FBは常時表示。 */
@@ -73,6 +74,7 @@ const OPTIONAL_COLUMNS: { key: string; label: string }[] = [
   { key: "concerns", label: "懸念点" },
   { key: "lost_reason", label: "失注理由" },
   { key: "follow_up_policy", label: "フォロー方針" },
+  { key: "roleplay_conducted_at", label: "ロープレ実施日" },
   { key: "minutes_doc_url", label: "商談議事録" },
   { key: "first_meeting_video_url", label: "一次商談動画" },
   { key: "second_meeting_video_url", label: "二次商談動画" },
@@ -354,6 +356,7 @@ export function DealsTable({
               {!hidden.has("concerns") && <th className="px-2 py-2 font-medium">懸念点</th>}
               {!hidden.has("lost_reason") && <th className="px-2 py-2 font-medium">失注理由</th>}
               {!hidden.has("follow_up_policy") && <th className="px-2 py-2 font-medium">フォロー方針</th>}
+              {!hidden.has("roleplay_conducted_at") && <th className="px-2 py-2 font-medium">ロープレ実施日</th>}
               {!hidden.has("minutes_doc_url") && <th className="px-2 py-2 font-medium">商談議事録</th>}
               {!hidden.has("first_meeting_video_url") && <th className="px-2 py-2 font-medium">一次商談動画</th>}
               {!hidden.has("second_meeting_video_url") && <th className="px-2 py-2 font-medium">二次商談動画</th>}
@@ -516,6 +519,11 @@ export function DealsTable({
                   {!hidden.has("follow_up_policy") && (
                     <Cell>
                       <TextInput formId={formId} name="follow_up_policy" defaultValue={row.follow_up_policy} disabled={false} wide />
+                    </Cell>
+                  )}
+                  {!hidden.has("roleplay_conducted_at") && (
+                    <Cell>
+                      <DateInput formId={formId} name="roleplay_conducted_at" defaultValue={row.roleplay_conducted_at} />
                     </Cell>
                   )}
                   {!hidden.has("minutes_doc_url") && (

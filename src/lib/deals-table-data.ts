@@ -74,6 +74,7 @@ export async function getDealsTableRows(filter: { companyId?: string }): Promise
       proposal_doc_url: d.proposal_doc_url,
       quote_doc_url: d.quote_doc_url,
       meeting_feedback: d.meeting_feedback,
+      roleplay_conducted_at: d.roleplay_conducted_at,
     };
   });
 }

@@ -1,22 +1,25 @@
 "use client";
 
 import { X } from "lucide-react";
-import { updateSupportStatus, addSupporter, removeSupporter } from "@/app/companies/actions";
-import { SUPPORT_STATUS_LABEL } from "@/lib/status";
-import { AppUser, SupportStatus } from "@/lib/types";
+import { updateSupportStatus, updateSupportPhase, addSupporter, removeSupporter } from "@/app/companies/actions";
+import { SUPPORT_STATUS_LABEL, SUPPORT_PHASE_LABEL, SUPPORT_PHASE_ORDER } from "@/lib/status";
+import { AppUser, SupportStatus, SupportPhase } from "@/lib/types";
 
 export function SupportTeamPanel({
   companyId,
   supportStatus,
+  supportPhase,
   supporters,
   users,
 }: {
   companyId: string;
   supportStatus: SupportStatus;
+  supportPhase: SupportPhase;
   supporters: { id: string; user_id: string }[];
   users: AppUser[];
 }) {
   const updateStatusWithId = updateSupportStatus.bind(null, companyId);
+  const updatePhaseWithId = updateSupportPhase.bind(null, companyId);
   const addSupporterWithId = addSupporter.bind(null, companyId);
   const assignedUserIds = new Set(supporters.map((s) => s.user_id));
   const availableUsers = users.filter((u) => !assignedUserIds.has(u.id));
@@ -24,6 +27,24 @@ export function SupportTeamPanel({
   return (
     <section className="card p-6">
       <h3 className="mb-4 text-sm font-semibold text-slate-900">支援状況</h3>
+
+      <div className="mb-5">
+        <label className="field-label">支援フェーズ</label>
+        <form action={updatePhaseWithId}>
+          <select
+            name="support_phase"
+            defaultValue={supportPhase}
+            onChange={(e) => e.currentTarget.form?.requestSubmit()}
+            className="field w-auto"
+          >
+            {SUPPORT_PHASE_ORDER.map((phase) => (
+              <option key={phase} value={phase}>
+                {SUPPORT_PHASE_LABEL[phase]}
+              </option>
+            ))}
+          </select>
+        </form>
+      </div>
 
       <div className="mb-5">
         <label className="field-label">支援ステータス</label>

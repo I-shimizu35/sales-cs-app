@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Building2, Users, ArrowRight, CalendarClock } from "lucide-react";
 import { createServerClient } from "@/lib/supabase";
-import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_BADGE_CLASS } from "@/lib/status";
+import {
+  SUPPORT_STATUS_LABEL,
+  SUPPORT_STATUS_BADGE_CLASS,
+  SUPPORT_PHASE_LABEL,
+  SUPPORT_PHASE_BADGE_CLASS,
+} from "@/lib/status";
+import { SupportPhase } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 
@@ -11,6 +17,7 @@ interface ClientRosterRow {
   id: string;
   name: string;
   support_status: "active" | "inactive";
+  support_phase: SupportPhase;
   supporterNames: string[];
 }
 
@@ -34,7 +41,7 @@ async function getClientRoster(): Promise<ClientRosterRow[]> {
 
   const { data: companies, error } = await supabase
     .from("companies")
-    .select("id, name, support_status")
+    .select("id, name, support_status, support_phase")
     .order("name");
   if (error) throw new Error(`企業一覧の取得に失敗しました: ${error.message}`);
 
@@ -54,6 +61,7 @@ async function getClientRoster(): Promise<ClientRosterRow[]> {
     id: c.id,
     name: c.name,
     support_status: c.support_status,
+    support_phase: c.support_phase,
     supporterNames: supporterNamesByCompany[c.id] ?? [],
   }));
 }
@@ -204,6 +212,7 @@ export default async function DashboardPage() {
             <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
               <tr>
                 <th className="whitespace-nowrap px-6 py-3.5 font-medium">クライアント名</th>
+                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援フェーズ</th>
                 <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援ステータス</th>
                 <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援担当者</th>
                 <th className="whitespace-nowrap px-6 py-3.5 text-right font-medium"></th>
@@ -216,6 +225,11 @@ export default async function DashboardPage() {
                     <Link href={`/companies/${c.id}`} className="font-medium text-slate-900 hover:text-brand-600">
                       {c.name}
                     </Link>
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-3.5">
+                    <span className={`badge ${SUPPORT_PHASE_BADGE_CLASS[c.support_phase]}`}>
+                      {SUPPORT_PHASE_LABEL[c.support_phase]}
+                    </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-3.5">
                     <span className={`badge ${SUPPORT_STATUS_BADGE_CLASS[c.support_status]}`}>

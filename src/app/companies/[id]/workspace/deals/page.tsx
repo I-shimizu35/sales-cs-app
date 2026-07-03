@@ -3,6 +3,7 @@ import { getActionItemsByDeal } from "@/lib/action-items-data";
 import { createServerClient } from "@/lib/supabase";
 import { DealsTable } from "@/components/deals-table";
 import { NewDealForm } from "@/components/new-deal-form";
+import { DealsCsvImport } from "@/components/deals-csv-import";
 import { ActionItemsPanel } from "@/components/action-items-panel";
 import { EmptyState } from "@/components/empty-state";
 import { AppUser } from "@/lib/types";
@@ -21,6 +22,7 @@ export default async function WorkspaceDealsPage({ params }: { params: { id: str
   return (
     <div className="space-y-6">
       <NewDealForm companyId={params.id} />
+      <DealsCsvImport companyId={params.id} />
       {rows.length === 0 ? (
         <EmptyState icon={Briefcase} title="まだ案件が登録されていません" />
       ) : (

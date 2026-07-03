@@ -207,6 +207,43 @@ export async function updateSupportStatus(companyId: string, formData: FormData)
   revalidatePath("/");
 }
 
+const SUPPORT_PHASES = [
+  "initial_design",
+  "material_collection",
+  "deal_sheet_setup",
+  "sales_materials",
+  "gpt_setup",
+  "operation_prep",
+  "operating",
+];
+
+export async function updateSupportPhase(companyId: string, formData: FormData): Promise<void> {
+  const phase = formData.get("support_phase");
+  if (typeof phase !== "string" || !SUPPORT_PHASES.includes(phase)) {
+    throw new Error("支援フェーズの値が不正です。");
+  }
+
+  const supabase = createServerClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("companies")
+    .select("owner_user_id")
+    .eq("id", companyId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`企業情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  await assertOwnerOrManager(existing.owner_user_id, "企業");
+
+  const { error } = await supabase.from("companies").update({ support_phase: phase }).eq("id", companyId);
+  if (error) {
+    throw new Error(`支援フェーズの更新に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/companies");
+  revalidatePath("/");
+}
+
 export async function addSupporter(companyId: string, formData: FormData): Promise<void> {
   const userId = formData.get("user_id");
   if (typeof userId !== "string" || !userId) {

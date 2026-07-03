@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight } from "lucide-react";
 import { Company } from "@/lib/types";
-import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS, SUPPORT_STATUS_LABEL, SUPPORT_STATUS_BADGE_CLASS } from "@/lib/status";
+import {
+  DEAL_STATUS_LABEL,
+  DEAL_STATUS_BADGE_CLASS,
+  SUPPORT_STATUS_LABEL,
+  SUPPORT_STATUS_BADGE_CLASS,
+  SUPPORT_PHASE_LABEL,
+  SUPPORT_PHASE_BADGE_CLASS,
+} from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 
@@ -19,6 +26,10 @@ function StatusBadge({ status }: { status: Company["deal_status"] }) {
 
 function SupportStatusBadge({ status }: { status: Company["support_status"] }) {
   return <span className={`badge ${SUPPORT_STATUS_BADGE_CLASS[status]}`}>{SUPPORT_STATUS_LABEL[status]}</span>;
+}
+
+function SupportPhaseBadge({ phase }: { phase: Company["support_phase"] }) {
+  return <span className={`badge ${SUPPORT_PHASE_BADGE_CLASS[phase]}`}>{SUPPORT_PHASE_LABEL[phase]}</span>;
 }
 
 export function CompanyListClient({
@@ -130,6 +141,7 @@ export function CompanyListClient({
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">会社名</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">業種</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">ステータス</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援フェーズ</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援ステータス</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援担当者</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">担当者</th>
@@ -156,6 +168,9 @@ export function CompanyListClient({
                     <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{company.industry ?? "-"}</td>
                     <td className="whitespace-nowrap px-6 py-3.5">
                       <StatusBadge status={company.deal_status} />
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-3.5">
+                      <SupportPhaseBadge phase={company.support_phase} />
                     </td>
                     <td className="whitespace-nowrap px-6 py-3.5">
                       <SupportStatusBadge status={company.support_status} />

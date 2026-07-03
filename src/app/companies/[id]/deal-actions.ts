@@ -7,6 +7,7 @@ import { createServerClient } from "@/lib/supabase";
 import { recordAuditLog } from "@/lib/audit";
 import { assertOwnerOrClientCompany, CurrentActor } from "@/lib/auth";
 import { DealStage } from "@/lib/types";
+import { DEAL_CSV_COLUMNS } from "@/lib/deal-csv-columns";
 
 const DEAL_STAGES: DealStage[] = [
   "first_contact",
@@ -46,6 +47,7 @@ const EDITABLE_DATE_FIELDS = [
   "forecast_meeting_date",
   "expected_close_date",
   "last_contact_date",
+  "roleplay_conducted_at",
 ] as const;
 const EDITABLE_DATETIME_FIELDS = ["next_meeting_at"] as const;
 const STAFF_ONLY_TEXT_FIELDS = ["meeting_feedback"] as const;
@@ -157,6 +159,101 @@ export async function createDeal(companyId: string, formData: FormData): Promise
   revalidatePath("/client/analytics");
   revalidatePath("/"); // ダッシュボードの集計もこのタイミングで最新化する
   revalidatePath("/transcripts/new"); // 案件プルダウンにも反映させる
+}
+
+const CSV_NUMBER_FIELDS = new Set(["amount", "win_probability", "expected_revenue"]);
+const CSV_DATE_FIELDS = new Set([
+  "first_meeting_date",
+  "proposal_meeting_date",
+  "forecast_meeting_date",
+  "expected_close_date",
+  "last_contact_date",
+]);
+const STAGE_LABEL_TO_VALUE: Record<string, DealStage> = {
+  初回接触: "first_contact",
+  ヒアリング: "hearing",
+  提案: "proposal",
+  クロージング: "closing",
+  受注: "won",
+  失注: "lost",
+};
+
+/**
+ * 案件管理表のCSVダウンロードと同じ列構成のCSVを一括登録する(新規追加のみ。既存案件の上書きはしない)。
+ * 既に他システム/Excelで案件を管理しているクライアントを新規に支援開始する際、
+ * 手入力し直す手間を省くための機能。
+ */
+export async function bulkImportDeals(
+  companyId: string,
+  rows: Record<string, string>[]
+): Promise<{ imported: number; skipped: number }> {
+  const supabase = createServerClient();
+
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("owner_user_id")
+    .eq("id", companyId)
+    .single();
+  if (companyError || !company) {
+    throw new Error(`企業情報の取得に失敗しました: ${companyError?.message ?? ""}`);
+  }
+  const actor = await assertOwnerOrClientCompany({ ownerUserId: company.owner_user_id, companyId }, "企業");
+
+  let imported = 0;
+  let skipped = 0;
+  const inserts: Record<string, unknown>[] = [];
+
+  for (const row of rows) {
+    const title = row.title?.trim();
+    if (!title) {
+      skipped++;
+      continue;
+    }
+    const insert: Record<string, unknown> = { company_id: companyId, title };
+    for (const { key } of DEAL_CSV_COLUMNS) {
+      if (key === "title") continue;
+      const raw = row[key]?.trim();
+      if (!raw) continue;
+      if (key === "stage") {
+        insert.stage = STAGE_LABEL_TO_VALUE[raw] ?? (DEAL_STAGES.includes(raw as DealStage) ? raw : undefined);
+      } else if (CSV_NUMBER_FIELDS.has(key)) {
+        const num = Number(raw.replace(/[,¥\s]/g, ""));
+        if (!Number.isNaN(num)) insert[key] = num;
+      } else if (CSV_DATE_FIELDS.has(key)) {
+        if (/^\d{4}-\d{2}-\d{2}/.test(raw)) insert[key] = raw.slice(0, 10);
+      } else {
+        insert[key] = raw;
+      }
+    }
+    inserts.push(insert);
+  }
+
+  if (inserts.length > 0) {
+    const { error } = await supabase.from("deals").insert(inserts);
+    if (error) {
+      throw new Error(`CSVインポートに失敗しました: ${error.message}`);
+    }
+    imported = inserts.length;
+  }
+
+  await recordAuditLog({
+    userId: userIdOfActor(actor),
+    action: "create",
+    targetType: "company",
+    targetId: companyId,
+    detail: { event: "deals_csv_import", imported, skipped },
+  });
+
+  revalidatePath(`/companies/${companyId}/workspace/deals`);
+  revalidatePath(`/companies/${companyId}/workspace/dashboard`);
+  revalidatePath(`/companies/${companyId}/workspace/analytics`);
+  revalidatePath("/client/deals");
+  revalidatePath("/client/dashboard");
+  revalidatePath("/client/analytics");
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/");
+
+  return { imported, skipped };
 }
 
 export async function deleteDeal(dealId: string): Promise<void> {

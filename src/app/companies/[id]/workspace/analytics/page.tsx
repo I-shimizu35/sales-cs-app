@@ -9,10 +9,14 @@ import { LostReasonBreakdown } from "@/components/lost-reason-breakdown";
 
 export const dynamic = "force-dynamic";
 
-async function getCompanyName(companyId: string): Promise<string> {
+async function getCompanyInfo(companyId: string): Promise<{ name: string; hasNotificationEmail: boolean }> {
   const supabase = createServerClient();
-  const { data } = await supabase.from("companies").select("name").eq("id", companyId).maybeSingle();
-  return data?.name ?? "(企業名不明)";
+  const { data } = await supabase
+    .from("companies")
+    .select("name, notification_email")
+    .eq("id", companyId)
+    .maybeSingle();
+  return { name: data?.name ?? "(企業名不明)", hasNotificationEmail: !!data?.notification_email };
 }
 
 export default async function WorkspaceAnalyticsPage({
@@ -22,10 +26,10 @@ export default async function WorkspaceAnalyticsPage({
   params: { id: string };
   searchParams: { month?: string };
 }) {
-  const [{ monthlyTrend, stageBreakdown, yomiSummary, weeklyReport, monthlyReport, lostReasonBreakdown, availableMonths }, companyName] =
+  const [{ monthlyTrend, stageBreakdown, yomiSummary, weeklyReport, monthlyReport, lostReasonBreakdown, availableMonths }, companyInfo] =
     await Promise.all([
       getAnalyticsData({ companyId: params.id, month: searchParams.month }),
-      getCompanyName(params.id),
+      getCompanyInfo(params.id),
     ]);
 
   return (
@@ -34,7 +38,13 @@ export default async function WorkspaceAnalyticsPage({
         <MonthFilter availableMonths={availableMonths} />
       </Suspense>
       <YomiSummaryCards summary={yomiSummary} />
-      <ReportSummaryPanel weeklyReport={weeklyReport} monthlyReport={monthlyReport} companyName={companyName} />
+      <ReportSummaryPanel
+        weeklyReport={weeklyReport}
+        monthlyReport={monthlyReport}
+        companyId={params.id}
+        companyName={companyInfo.name}
+        hasNotificationEmail={companyInfo.hasNotificationEmail}
+      />
       <div className="mb-6">
         <MonthlyTrendChart data={monthlyTrend} />
       </div>

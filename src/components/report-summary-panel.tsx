@@ -1,44 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Copy, Check, CalendarClock, CalendarRange } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Copy, Check, CalendarClock, CalendarRange, Send } from "lucide-react";
 import { WeeklyReport, MonthlyReport } from "@/lib/analytics-data";
-
-function formatDateJp(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${y}/${m}/${d}`;
-}
-
-function buildWeeklyReportText(report: WeeklyReport, companyName: string): string {
-  return [
-    `【${companyName}様 週次ご報告】`,
-    `対象期間: ${formatDateJp(report.weekStart)}〜${formatDateJp(report.weekEnd)}`,
-    "",
-    `累計ヨミ件数: ${report.yomiCount}件`,
-    `累計ヨミ金額: ¥${report.expectedRevenueTotal.toLocaleString()}`,
-    "",
-    `今週の新規商談数: ${report.newMeetingsThisWeek}件`,
-    `今週の受注: ${report.wonCountThisWeek}件(¥${report.wonAmountThisWeek.toLocaleString()})`,
-  ].join("\n");
-}
-
-function buildMonthlyReportText(report: MonthlyReport, companyName: string): string {
-  const lines = [
-    `【${companyName}様 月次定例MTG報告】`,
-    `対象月: ${report.month}`,
-    "",
-    `新規商談数: ${report.newMeetings}件`,
-    `受注: ${report.wonCount}件(¥${report.wonAmount.toLocaleString()})`,
-    `失注: ${report.lostCount}件`,
-  ];
-  if (report.topLostReasons.length > 0) {
-    lines.push("", "主な失注理由:");
-    for (const r of report.topLostReasons) {
-      lines.push(`・${r.reason}(${r.count}件)`);
-    }
-  }
-  return lines.join("\n");
-}
+import { buildWeeklyReportText, buildMonthlyReportText, formatDateJp } from "@/lib/report-text";
+import { sendWeeklyReportEmail } from "@/app/companies/[id]/report-actions";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -58,14 +24,53 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function SendButton({ companyId, disabled }: { companyId: string; disabled: boolean }) {
+  const [isPending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleClick() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await sendWeeklyReportEmail(companyId);
+        setSent(true);
+        setTimeout(() => setSent(false), 2000);
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    });
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled || isPending}
+        title={disabled ? "この企業には通知先メールアドレスが設定されていません(企業詳細から設定できます)" : undefined}
+        className="btn-secondary btn-sm disabled:opacity-50"
+      >
+        {sent ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Send className="h-3.5 w-3.5" />}
+        {isPending ? "送信中..." : sent ? "送信しました" : "送信"}
+      </button>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 export function ReportSummaryPanel({
   weeklyReport,
   monthlyReport,
+  companyId,
   companyName,
+  hasNotificationEmail,
 }: {
   weeklyReport: WeeklyReport;
   monthlyReport: MonthlyReport;
+  companyId: string;
   companyName: string;
+  hasNotificationEmail: boolean;
 }) {
   const weeklyText = buildWeeklyReportText(weeklyReport, companyName);
   const monthlyText = buildMonthlyReportText(monthlyReport, companyName);
@@ -78,7 +83,10 @@ export function ReportSummaryPanel({
             <CalendarClock className="h-4 w-4 text-brand-600" />
             週次レポート(金曜報告用)
           </h3>
-          <CopyButton text={weeklyText} />
+          <div className="flex items-center gap-2">
+            <CopyButton text={weeklyText} />
+            <SendButton companyId={companyId} disabled={!hasNotificationEmail} />
+          </div>
         </div>
         <p className="mb-3 text-xs text-slate-400">
           {formatDateJp(weeklyReport.weekStart)}〜{formatDateJp(weeklyReport.weekEnd)}

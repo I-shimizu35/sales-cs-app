@@ -151,8 +151,10 @@ export async function createDeal(companyId: string, formData: FormData): Promise
   revalidatePath(`/companies/${companyId}`);
   revalidatePath(`/companies/${companyId}/workspace/deals`);
   revalidatePath(`/companies/${companyId}/workspace/dashboard`);
+  revalidatePath(`/companies/${companyId}/workspace/analytics`);
   revalidatePath("/client/deals");
   revalidatePath("/client/dashboard");
+  revalidatePath("/client/analytics");
   revalidatePath("/"); // ダッシュボードの集計もこのタイミングで最新化する
   revalidatePath("/transcripts/new"); // 案件プルダウンにも反映させる
 }
@@ -190,8 +192,10 @@ export async function deleteDeal(dealId: string): Promise<void> {
   revalidatePath(`/companies/${existing.company_id}`);
   revalidatePath(`/companies/${existing.company_id}/workspace/deals`);
   revalidatePath(`/companies/${existing.company_id}/workspace/dashboard`);
+  revalidatePath(`/companies/${existing.company_id}/workspace/analytics`);
   revalidatePath("/client/deals");
   revalidatePath("/client/dashboard");
+  revalidatePath("/client/analytics");
   revalidatePath("/");
 }
 
@@ -280,8 +284,10 @@ export async function updateDealFields(dealId: string, formData: FormData): Prom
 
   revalidatePath(`/companies/${existing.company_id}/workspace/deals`);
   revalidatePath(`/companies/${existing.company_id}/workspace/dashboard`);
+  revalidatePath(`/companies/${existing.company_id}/workspace/analytics`);
   revalidatePath("/client/deals");
   revalidatePath("/client/dashboard");
+  revalidatePath("/client/analytics");
   revalidatePath(`/companies/${existing.company_id}`);
   revalidatePath("/");
 }

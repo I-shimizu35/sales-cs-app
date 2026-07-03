@@ -116,7 +116,7 @@ export async function createDeal(companyId: string, formData: FormData): Promise
 
   const { data: company, error: companyError } = await supabase
     .from("companies")
-    .select("owner_user_id")
+    .select("owner_user_id, default_deal_category, default_lead_source")
     .eq("id", companyId)
     .single();
   if (companyError || !company) {
@@ -135,6 +135,9 @@ export async function createDeal(companyId: string, formData: FormData): Promise
       company_id: companyId,
       title: title.trim(),
       owner_user_id: (ownerUserId as string) || null,
+      // 案件テンプレート: 企業ごとに設定したデフォルト値を新規案件へ自動適用する
+      deal_category: company.default_deal_category || null,
+      lead_source: company.default_lead_source || null,
     })
     .select("id")
     .single();
@@ -254,6 +257,83 @@ export async function bulkImportDeals(
   revalidatePath("/");
 
   return { imported, skipped };
+}
+
+const UPLOADABLE_FIELDS = ["minutes_doc_url", "proposal_doc_url", "quote_doc_url"] as const;
+const ATTACHMENT_BUCKET = "deal-documents";
+// 署名付きURLの有効期限(10年)。バケットが非公開のため、案件管理表のURL欄には
+// 有効期限付きの署名URLをそのまま保存する簡易実装(期限切れ時は再アップロードが必要)。
+const SIGNED_URL_EXPIRES_IN = 60 * 60 * 24 * 365 * 10;
+
+/**
+ * 商談議事録・提案書・見積もりのファイルをSupabase Storageへアップロードし、
+ * 対応するURL欄に署名付きURLを保存する。商談動画は既存方針通りGoogle Drive運用のため対象外。
+ */
+export async function uploadDealAttachment(
+  dealId: string,
+  fieldKey: (typeof UPLOADABLE_FIELDS)[number],
+  formData: FormData
+): Promise<{ url: string }> {
+  if (!UPLOADABLE_FIELDS.includes(fieldKey)) {
+    throw new Error("アップロード対象のフィールドが不正です。");
+  }
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("ファイルを選択してください。");
+  }
+
+  const supabase = createServerClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("deals")
+    .select("owner_user_id, company_id")
+    .eq("id", dealId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`案件情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: existing.owner_user_id, companyId: existing.company_id },
+    "案件"
+  );
+
+  const safeName = file.name.replace(/[^\w.\-ぁ-んァ-ヶ一-龠]/g, "_");
+  const path = `${existing.company_id}/${dealId}/${fieldKey}-${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .upload(path, file, { contentType: file.type || undefined });
+  if (uploadError) {
+    throw new Error(`ファイルのアップロードに失敗しました: ${uploadError.message}`);
+  }
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN);
+  if (signError || !signed) {
+    throw new Error(`アップロードURLの発行に失敗しました: ${signError?.message ?? ""}`);
+  }
+
+  const { error: updateError } = await supabase
+    .from("deals")
+    .update({ [fieldKey]: signed.signedUrl })
+    .eq("id", dealId);
+  if (updateError) {
+    throw new Error(`案件情報の更新に失敗しました: ${updateError.message}`);
+  }
+
+  await recordAuditLog({
+    userId: userIdOfActor(actor),
+    action: "update",
+    targetType: "deal",
+    targetId: dealId,
+    detail: { field: fieldKey, event: "file_upload", fileName: file.name },
+  });
+
+  revalidatePath(`/companies/${existing.company_id}/workspace/deals`);
+  revalidatePath("/client/deals");
+  revalidatePath(`/companies/${existing.company_id}`);
+
+  return { url: signed.signedUrl };
 }
 
 export async function deleteDeal(dealId: string): Promise<void> {

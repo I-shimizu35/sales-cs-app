@@ -39,9 +39,9 @@ export function ActionItemsPanel({
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs"
+                      className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs"
                     >
-                      <span className="flex-1 text-slate-700">{item.title}</span>
+                      <span className="w-full text-slate-700 sm:w-auto sm:flex-1">{item.title}</span>
                       <span className="text-slate-400">
                         期日: {item.due_date} • 担当:{" "}
                         {users.find((u) => u.id === item.assignee_id)?.name ?? "未設定"}

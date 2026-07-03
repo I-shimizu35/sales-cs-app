@@ -275,6 +275,53 @@ export function CompanyDetailClient({
                     商談FBが届いた際などにこのアドレスへ通知メールを送信します。未入力の場合は通知しません。
                   </p>
                 </div>
+                <div>
+                  <label className="field-label">契約開始日</label>
+                  <input
+                    type="date"
+                    name="contract_start"
+                    defaultValue={company.contract_start ?? ""}
+                    disabled={!canEditCompany}
+                    className="field"
+                  />
+                </div>
+                <div>
+                  <label className="field-label">契約終了日(更新予定日)</label>
+                  <input
+                    type="date"
+                    name="contract_end"
+                    defaultValue={company.contract_end ?? ""}
+                    disabled={!canEditCompany}
+                    className="field"
+                  />
+                  <p className="mt-1 text-xs text-slate-400">残り60日以内になるとダッシュボードに更新リマインドが表示されます。</p>
+                </div>
+              </div>
+              <div className="mt-6">
+                <h4 className="mb-2 text-xs font-semibold text-slate-500">案件テンプレート(新規案件作成時のデフォルト値)</h4>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label">デフォルト案件区分</label>
+                    <input
+                      name="default_deal_category"
+                      defaultValue={company.default_deal_category ?? ""}
+                      disabled={!canEditCompany}
+                      placeholder="例: 新規導入"
+                      className="field"
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">デフォルト流入経路</label>
+                    <input
+                      name="default_lead_source"
+                      defaultValue={company.default_lead_source ?? ""}
+                      disabled={!canEditCompany}
+                      placeholder="例: マッチング"
+                      className="field"
+                    />
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">設定すると、この企業で新規案件を追加した際に自動で入力されます。</p>
               </div>
               <div className="mt-6">
                 <label className="field-label">事業内容</label>

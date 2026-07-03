@@ -162,6 +162,10 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
       current_issues: formData.get("current_issues") || null,
       goals: formData.get("goals") || null,
       notification_email: formData.get("notification_email") || null,
+      contract_start: formData.get("contract_start") || null,
+      contract_end: formData.get("contract_end") || null,
+      default_deal_category: formData.get("default_deal_category") || null,
+      default_lead_source: formData.get("default_lead_source") || null,
       owner_user_id: resolvedOwnerUserId,
     })
     .eq("id", companyId);

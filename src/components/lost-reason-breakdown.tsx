@@ -1,15 +1,43 @@
-import { AlertTriangle } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { AlertTriangle, Copy, Check } from "lucide-react";
 import { LostReasonBreakdownPoint } from "@/lib/analytics-data";
+
+function buildLostReasonText(data: LostReasonBreakdownPoint[]): string {
+  const lines = ["【失注理由の傾向(全期間・上位10件)】", "台本・営業用GPTナレッジの改善にご活用ください。", ""];
+  for (const d of data) {
+    lines.push(`・${d.reason}(${d.count}件)`);
+  }
+  return lines.join("\n");
+}
 
 export function LostReasonBreakdown({ data }: { data: LostReasonBreakdownPoint[] }) {
   const max = Math.max(1, ...data.map((d) => d.count));
+  const [copied, setCopied] = useState(false);
 
   return (
     <div className="card p-5">
-      <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <AlertTriangle className="h-4 w-4 text-amber-600" />
-        失注理由の傾向(全期間・上位10件)
-      </h3>
+      <div className="mb-1 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          失注理由の傾向(全期間・上位10件)
+        </h3>
+        {data.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(buildLostReasonText(data));
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="btn-secondary btn-sm"
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+            GPTナレッジ用にコピー
+          </button>
+        )}
+      </div>
       <p className="mb-4 text-xs text-slate-400">台本・営業用GPTナレッジの改善にご活用ください。</p>
       {data.length === 0 ? (
         <p className="py-10 text-center text-xs text-slate-400">失注理由が入力された案件がまだありません</p>

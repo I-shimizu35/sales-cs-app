@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search } from "lucide-react";
-import { updateDealFields, deleteDeal } from "@/app/companies/[id]/deal-actions";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip } from "lucide-react";
+import { updateDealFields, deleteDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
 
@@ -152,14 +152,68 @@ function DatetimeInput({ formId, name, defaultValue }: { formId: string; name: s
   );
 }
 
-function UrlInput({ formId, name, defaultValue }: { formId: string; name: string; defaultValue: string | null }) {
+function UrlInput({
+  formId,
+  name,
+  defaultValue,
+  dealId,
+  allowUpload,
+}: {
+  formId: string;
+  name: string;
+  defaultValue: string | null;
+  dealId?: string;
+  allowUpload?: boolean;
+}) {
+  const [value, setValue] = useState(defaultValue ?? "");
+  const [isUploading, startUploadTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !dealId) return;
+    const formData = new FormData();
+    formData.set("file", file);
+    startUploadTransition(async () => {
+      try {
+        const { url } = await uploadDealAttachment(dealId, name as Parameters<typeof uploadDealAttachment>[1], formData);
+        setValue(url);
+      } catch (err) {
+        window.alert((err as Error).message);
+      }
+    });
+    e.target.value = "";
+  }
+
   return (
     <div className="flex items-center gap-1">
-      <input type="text" form={formId} name={name} defaultValue={defaultValue ?? ""} placeholder="URL" className="field-sm w-32" />
-      {defaultValue && (
-        <a href={defaultValue} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-brand-600">
+      <input
+        type="text"
+        form={formId}
+        name={name}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="URL"
+        className="field-sm w-28"
+      />
+      {value && (
+        <a href={value} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-brand-600" title="開く">
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
+      )}
+      {allowUpload && dealId && (
+        <>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
+            title="ファイルをアップロード"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+          </button>
+          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+        </>
       )}
     </div>
   );
@@ -528,7 +582,7 @@ export function DealsTable({
                   )}
                   {!hidden.has("minutes_doc_url") && (
                     <Cell>
-                      <UrlInput formId={formId} name="minutes_doc_url" defaultValue={row.minutes_doc_url} />
+                      <UrlInput formId={formId} name="minutes_doc_url" defaultValue={row.minutes_doc_url} dealId={row.id} allowUpload />
                     </Cell>
                   )}
                   {!hidden.has("first_meeting_video_url") && (
@@ -543,12 +597,12 @@ export function DealsTable({
                   )}
                   {!hidden.has("proposal_doc_url") && (
                     <Cell>
-                      <UrlInput formId={formId} name="proposal_doc_url" defaultValue={row.proposal_doc_url} />
+                      <UrlInput formId={formId} name="proposal_doc_url" defaultValue={row.proposal_doc_url} dealId={row.id} allowUpload />
                     </Cell>
                   )}
                   {!hidden.has("quote_doc_url") && (
                     <Cell>
-                      <UrlInput formId={formId} name="quote_doc_url" defaultValue={row.quote_doc_url} />
+                      <UrlInput formId={formId} name="quote_doc_url" defaultValue={row.quote_doc_url} dealId={row.id} allowUpload />
                     </Cell>
                   )}
                   <Cell>

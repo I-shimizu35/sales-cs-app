@@ -47,6 +47,8 @@ export interface Company {
   client_login_slug: string | null;
   client_portal_enabled: boolean;
   notification_email: string | null;
+  default_deal_category: string | null;
+  default_lead_source: string | null;
   created_at: string;
   updated_at: string;
 }

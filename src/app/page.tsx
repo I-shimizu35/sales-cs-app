@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Building2, Users, ArrowRight, CalendarClock } from "lucide-react";
+import { Building2, Users, ArrowRight, CalendarClock, FileClock, ListChecks } from "lucide-react";
 import { createServerClient } from "@/lib/supabase";
 import {
   SUPPORT_STATUS_LABEL,
   SUPPORT_STATUS_BADGE_CLASS,
   SUPPORT_PHASE_LABEL,
   SUPPORT_PHASE_BADGE_CLASS,
+  SUPPORT_PHASE_ORDER,
 } from "@/lib/status";
 import { SupportPhase } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
@@ -13,11 +14,14 @@ import { EmptyState } from "@/components/empty-state";
 
 export const dynamic = "force-dynamic";
 
+const CONTRACT_RENEWAL_WINDOW_DAYS = 60;
+
 interface ClientRosterRow {
   id: string;
   name: string;
   support_status: "active" | "inactive";
   support_phase: SupportPhase;
+  contract_end: string | null;
   supporterNames: string[];
 }
 
@@ -41,7 +45,7 @@ async function getClientRoster(): Promise<ClientRosterRow[]> {
 
   const { data: companies, error } = await supabase
     .from("companies")
-    .select("id, name, support_status, support_phase")
+    .select("id, name, support_status, support_phase, contract_end")
     .order("name");
   if (error) throw new Error(`企業一覧の取得に失敗しました: ${error.message}`);
 
@@ -62,6 +66,7 @@ async function getClientRoster(): Promise<ClientRosterRow[]> {
     name: c.name,
     support_status: c.support_status,
     support_phase: c.support_phase,
+    contract_end: c.contract_end,
     supporterNames: supporterNamesByCompany[c.id] ?? [],
   }));
 }
@@ -114,6 +119,23 @@ export default async function DashboardPage() {
   ]);
   const activeCount = roster.filter((c) => c.support_status === "active").length;
   const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const contractRenewalSoon = roster
+    .filter((c) => c.support_status === "active" && c.contract_end)
+    .map((c) => ({
+      ...c,
+      daysLeft: Math.ceil(
+        (new Date(c.contract_end as string).getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    }))
+    .filter((c) => c.daysLeft >= 0 && c.daysLeft <= CONTRACT_RENEWAL_WINDOW_DAYS)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  const phaseSummary = SUPPORT_PHASE_ORDER.map((phase) => ({
+    phase,
+    count: roster.filter((c) => c.support_status === "active" && c.support_phase === phase).length,
+  })).filter((p) => p.count > 0);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-8 py-10">
@@ -141,6 +163,52 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {contractRenewalSoon.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <FileClock className="h-4 w-4 text-red-600" />
+            契約更新が近いクライアント(60日以内)
+          </h2>
+          <div className="card divide-y divide-slate-100 overflow-hidden">
+            {contractRenewalSoon.map((c) => (
+              <Link
+                key={c.id}
+                href={`/companies/${c.id}`}
+                className="flex items-center justify-between gap-4 p-3.5 text-sm transition-colors hover:bg-slate-50"
+              >
+                <span className="font-medium text-slate-900">{c.name}</span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    c.daysLeft <= 14 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  残り{c.daysLeft}日({c.contract_end})
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {phaseSummary.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <ListChecks className="h-4 w-4 text-brand-600" />
+            支援フェーズ別クライアント数
+          </h2>
+          <div className="card flex flex-wrap gap-3 p-4">
+            {phaseSummary.map((p) => (
+              <span
+                key={p.phase}
+                className={`badge ${SUPPORT_PHASE_BADGE_CLASS[p.phase]}`}
+              >
+                {SUPPORT_PHASE_LABEL[p.phase]} {p.count}社
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {supporterWorkload.length > 0 && (
         <div className="mb-8">

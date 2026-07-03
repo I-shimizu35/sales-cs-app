@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { callClaudeJson, ClaudeJsonParseError } from "@/lib/claude";
 import { getPromptTemplate } from "@/lib/prompts";
 import { recordAuditLog } from "@/lib/audit";
+import { recordError } from "@/lib/error-log";
 import { ReportType } from "@/lib/types";
 import { getCurrentUserId, assertOwnerOrManager } from "@/lib/auth";
 
@@ -180,6 +181,12 @@ export async function POST(req: NextRequest) {
       e instanceof ClaudeJsonParseError
         ? "Claudeの応答をJSONとして解析できませんでした。"
         : (e as Error).message;
+    await recordError("ai_generate_feedback", e, {
+      dealId,
+      meetingId,
+      transcriptId: body.transcriptId,
+      completedSteps: Object.keys(results),
+    });
     return NextResponse.json({ error: message, results, dealId, meetingId }, { status: 502 });
   }
 }

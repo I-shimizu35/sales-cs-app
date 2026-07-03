@@ -35,6 +35,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           >
             操作履歴
           </Link>
+          <Link
+            href="/admin/errors"
+            className="border-b-2 border-transparent pb-3 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
+          >
+            エラーログ
+          </Link>
         </nav>
       </div>
       {children}

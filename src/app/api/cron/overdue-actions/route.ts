@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { sendNotificationEmail } from "@/lib/notifications";
+import { recordError } from "@/lib/error-log";
 
 /**
  * Vercel Cronから毎日呼ばれ、期日超過(due_date < 今日 かつ status != done)の
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   let sent = 0;
+  let failed = 0;
   for (const user of assignees ?? []) {
     const list = byAssignee.get(user.id) ?? [];
     if (list.length === 0) continue;
@@ -62,13 +64,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       (item) =>
         `・${item.deals?.companies?.name ?? "不明な企業"} / ${item.deals?.title ?? "不明な案件"} 「${item.title}」(期日: ${item.due_date})`
     );
-    await sendNotificationEmail({
-      to: user.email,
-      subject: `【要対応】期日超過の次回アクションが${list.length}件あります`,
-      body: `${user.name} 様\n\n以下の次回アクションが期日を超過しています。ご確認ください。\n\n${lines.join("\n")}\n\n※本メールは自動送信です。`,
-    });
-    sent += 1;
+    try {
+      await sendNotificationEmail({
+        to: user.email,
+        subject: `【要対応】期日超過の次回アクションが${list.length}件あります`,
+        body: `${user.name} 様\n\n以下の次回アクションが期日を超過しています。ご確認ください。\n\n${lines.join("\n")}\n\n※本メールは自動送信です。`,
+      });
+      sent += 1;
+    } catch (e) {
+      // 1人分の送信失敗で他の担当者への通知が止まらないよう、ログに残して処理を継続する
+      await recordError("cron_overdue_actions", e, { userId: user.id, itemCount: list.length });
+      failed += 1;
+    }
   }
 
-  return NextResponse.json({ sent });
+  return NextResponse.json({ sent, failed });
 }

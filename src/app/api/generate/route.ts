@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { callClaudeJson, ClaudeJsonParseError } from "@/lib/claude";
 import { getPromptTemplate } from "@/lib/prompts";
 import { recordAuditLog } from "@/lib/audit";
+import { recordError } from "@/lib/error-log";
 import { ReportType } from "@/lib/types";
 import { getCurrentUserId, assertOwnerOrManager } from "@/lib/auth";
 
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
     content = await callClaudeJson(template, variables ?? {}, { reportType });
   } catch (e) {
     if (e instanceof ClaudeJsonParseError) {
+      await recordError("ai_generate", e, { targetType, targetId, reportType, raw: e.raw });
       return NextResponse.json(
         {
           error:
@@ -86,6 +88,7 @@ export async function POST(req: NextRequest) {
         { status: 502 }
       );
     }
+    await recordError("ai_generate", e, { targetType, targetId, reportType });
     return NextResponse.json(
       { error: `Claude呼び出しに失敗しました: ${(e as Error).message}` },
       { status: 502 }

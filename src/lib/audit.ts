@@ -7,7 +7,7 @@ import { createServerClient } from "./supabase";
  */
 export async function recordAuditLog(params: {
   userId: string | null;
-  action: "create" | "update" | "generate" | "export" | "reflect" | "delete";
+  action: "create" | "update" | "generate" | "export" | "reflect" | "delete" | "send";
   targetType: string;
   targetId: string;
   detail?: Record<string, unknown>;

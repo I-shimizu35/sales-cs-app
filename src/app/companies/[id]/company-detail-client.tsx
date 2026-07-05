@@ -17,8 +17,13 @@ type TabType = "basic" | "prep";
 
 const PREP_REPORTS: { type: ReportType; label: string }[] = [
   { type: "company_analysis", label: "企業分析" },
+  { type: "industry_analysis", label: "業界分析" },
+  { type: "distribution_analysis", label: "商流分析" },
+  { type: "profit_structure_analysis", label: "収益構造分析" },
+  { type: "assumed_issues", label: "想定課題" },
   { type: "hearing_items", label: "ヒアリング項目" },
   { type: "talk_script", label: "商談トーク" },
+  { type: "qa_list", label: "Q&Aリスト" },
 ];
 
 interface Props {

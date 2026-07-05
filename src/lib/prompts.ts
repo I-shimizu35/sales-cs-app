@@ -169,6 +169,123 @@ BANT判定結果: {{bant_result}}
   "reasoning": "string",
   "risk_factors": ["string"]
 }`.trim(),
+
+  industry_analysis: `
+以下の企業情報をもとに、業界分析を行ってください。
+
+会社名: {{company_name}}
+業種: {{industry}}
+事業内容: {{business_summary}}
+
+入力にない具体的な市場規模数値・競合社名を創作しないでください。
+一般的な業界動向として述べる場合は推測である旨を明記してください。
+以下のJSON形式のみで出力してください:
+{
+  "industry_trends": ["string"],
+  "competitive_landscape": "string(推測である旨を含む)",
+  "regulatory_or_external_factors": ["string"],
+  "opportunities_for_client": ["string"]
+}`.trim(),
+
+  distribution_analysis: `
+以下の企業情報をもとに、商流(販売チャネル・顧客構造)の分析を行ってください。
+
+会社名: {{company_name}}
+業種: {{industry}}
+事業内容: {{business_summary}}
+現状課題: {{current_issues}}
+
+入力にない具体的な取引先名を創作しないでください。
+以下のJSON形式のみで出力してください:
+{
+  "estimated_customer_segments": ["string"],
+  "sales_channel_hypothesis": "string",
+  "intermediaries_or_partners": ["string"],
+  "distribution_challenges": ["string"]
+}`.trim(),
+
+  profit_structure_analysis: `
+以下の企業情報をもとに、収益構造の仮説分析を行ってください。
+
+会社名: {{company_name}}
+業種: {{industry}}
+事業内容: {{business_summary}}
+
+入力にない具体的な財務数値(売上高・利益率等)を創作しないでください。
+すべて仮説であることが分かるように記述してください。
+以下のJSON形式のみで出力してください:
+{
+  "revenue_model_hypothesis": "string",
+  "cost_structure_hypothesis": "string",
+  "margin_pressure_points": ["string"],
+  "notes": "string(推測の前提条件・不確実性)"
+}`.trim(),
+
+  assumed_issues: `
+以下の企業情報をもとに、想定される課題を整理してください。
+
+会社名: {{company_name}}
+業種: {{industry}}
+事業内容: {{business_summary}}
+現状課題: {{current_issues}}
+目標: {{goals}}
+
+根拠のない決めつけを避け、それぞれの課題がなぜ想定されるかの根拠を示してください。
+以下のJSON形式のみで出力してください:
+{
+  "issues": [
+    { "issue": "string", "impact": "string", "hypothesis_basis": "string" }
+  ]
+}`.trim(),
+
+  qa_list: `
+以下の情報をもとに、商談中に想定される質問・懸念とその回答案を作成してください。
+
+企業分析: {{company_analysis}}
+現状課題: {{current_issues}}
+支援目的: {{support_purpose}}
+
+「必ず」「絶対に」等の誇大な効果保証表現は使わないでください。
+以下のJSON形式のみで出力してください:
+{
+  "qa_pairs": [
+    { "question": "string(想定される質問・懸念)", "suggested_answer": "string" }
+  ]
+}`.trim(),
+
+  forecast_reflection: `
+以下の商談情報をもとに、週次のヨミ表・報告にそのまま転記できる要約を作成してください。
+
+議事録: {{meeting_minutes}}
+BANT判定結果: {{bant_result}}
+温度感スコア: {{temperature_score}}
+受注確度: {{win_probability}}
+案件フェーズ: {{deal_stage}}
+
+断定的な受注確約表現は避けてください。
+以下のJSON形式のみで出力してください:
+{
+  "summary_for_forecast": "string(ヨミ表・週次報告にそのまま転記できる1〜2文の要約)",
+  "recommended_next_action": "string",
+  "confidence_note": "string(確度判定の根拠・注意点)"
+}`.trim(),
+
+  deal_sheet_reflection: `
+以下の商談情報をもとに、案件管理表の各欄に反映する内容案を作成してください。
+
+議事録: {{meeting_minutes}}
+次回提案方針: {{next_proposal_policy}}
+現在の顧客課題欄: {{current_issues}}
+現在の提案内容欄: {{proposal_content}}
+
+議事録に記載のない内容を創作しないでください。
+以下のJSON形式のみで出力してください:
+{
+  "customer_issues_update": "string(顧客課題欄への反映案)",
+  "proposal_content_update": "string(提案内容欄への反映案)",
+  "concerns_update": "string(懸念点欄への反映案)",
+  "follow_up_policy_update": "string(フォロー方針欄への反映案)"
+}`.trim(),
 };
 
 export interface PromptTemplateResult {

@@ -86,4 +86,50 @@ export const MOCK_RESPONSES: Partial<Record<ReportType, Record<string, unknown>>
     reasoning: "[モック] BANTのうちAuthorityが未確定のため中程度の確度と判定。",
     risk_factors: ["[モック] 決裁者の合意が取れていない"],
   },
+  industry_analysis: {
+    industry_trends: ["[モック] 業界全体でDX投資が拡大傾向(推測)"],
+    competitive_landscape: "[モック] 情報不足のため競合状況は推測の域を出ない。",
+    regulatory_or_external_factors: ["[モック] 特段の規制動向は確認できていない"],
+    opportunities_for_client: ["[モック] 業務効率化ニーズの高まりに合致する可能性"],
+  },
+  distribution_analysis: {
+    estimated_customer_segments: ["[モック] 中堅企業の管理部門(推測)"],
+    sales_channel_hypothesis: "[モック] 直販中心と推測されるが未確認。",
+    intermediaries_or_partners: ["[モック] 情報不足のため確認できていない"],
+    distribution_challenges: ["[モック] 販路拡大における人的リソース不足の可能性"],
+  },
+  profit_structure_analysis: {
+    revenue_model_hypothesis: "[モック] サブスクリプション型が中心と推測される。",
+    cost_structure_hypothesis: "[モック] 人件費比率が高い可能性(業種特性からの推測)。",
+    margin_pressure_points: ["[モック] 採用コストの上昇"],
+    notes: "[モック] すべて仮説であり、財務数値の裏付けはない。",
+  },
+  assumed_issues: {
+    issues: [
+      {
+        issue: "[モック] 部門間の情報共有がサイロ化している可能性",
+        impact: "[モック] 意思決定の遅延につながりうる",
+        hypothesis_basis: "[モック] 事業内容・現状課題の記載からの推測",
+      },
+    ],
+  },
+  qa_list: {
+    qa_pairs: [
+      {
+        question: "[モック] 導入までにどのくらい期間がかかりますか",
+        suggested_answer: "[モック] 貴社の状況次第ですが、一般的には1〜2ヶ月程度を目安としています。",
+      },
+    ],
+  },
+  forecast_reflection: {
+    summary_for_forecast: "[モック] 現状ヒアリング完了、次回提案予定。確度は中程度。",
+    recommended_next_action: "[モック] 決裁者を交えた提案機会の設定",
+    confidence_note: "[モック] Authority未確定のため中確度と判定",
+  },
+  deal_sheet_reflection: {
+    customer_issues_update: "[モック] 既存ツールへの不満、業務効率化ニーズ",
+    proposal_content_update: "[モック] 費用対効果シミュレーションを含む提案を予定",
+    concerns_update: "[モック] 導入コストへの懸念",
+    follow_up_policy_update: "[モック] 見積書提示後、決裁者同席の場を再設定する",
+  },
 };

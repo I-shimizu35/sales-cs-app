@@ -43,6 +43,17 @@ interface WinProbability {
   reasoning: string;
   risk_factors: string[];
 }
+interface ForecastReflection {
+  summary_for_forecast: string;
+  recommended_next_action: string;
+  confidence_note: string;
+}
+interface DealSheetReflection {
+  customer_issues_update: string;
+  proposal_content_update: string;
+  concerns_update: string;
+  follow_up_policy_update: string;
+}
 
 interface GenerateResults {
   meeting_minutes?: MeetingMinutes;
@@ -52,6 +63,8 @@ interface GenerateResults {
   win_probability?: WinProbability;
   reinforcement_fb?: { good_points: { point: string; evidence: string; how_to_repeat: string }[] };
   correction_fb?: { improvement_points: { point: string; evidence: string; action: string }[] };
+  forecast_reflection?: ForecastReflection;
+  deal_sheet_reflection?: DealSheetReflection;
 }
 
 const BANT_LABELS: { key: keyof BantResult; title: string }[] = [
@@ -313,6 +326,56 @@ export function FeedbackGenerateClient({
                     color="bg-emerald-500"
                     note={results.win_probability.reasoning}
                   />
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* ヨミ表・案件管理表への反映案 */}
+          {(results.forecast_reflection || results.deal_sheet_reflection) && (
+            <section>
+              <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <FileText className="h-4 w-4 text-brand-600" />
+                ヨミ表・案件管理表への反映案
+                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-normal text-amber-700">
+                  AI生成(反映は手動でご確認の上コピーしてください)
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {results.forecast_reflection && (
+                  <div className="card p-5 text-sm leading-relaxed text-slate-700">
+                    <h4 className="mb-2 text-xs font-semibold text-slate-500">ヨミ表反映(週次報告用要約)</h4>
+                    <p className="mb-2 font-medium text-slate-900">
+                      {results.forecast_reflection.summary_for_forecast}
+                    </p>
+                    <p className="mb-1 text-xs text-slate-500">
+                      次の対応: {results.forecast_reflection.recommended_next_action}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      確度の根拠: {results.forecast_reflection.confidence_note}
+                    </p>
+                  </div>
+                )}
+                {results.deal_sheet_reflection && (
+                  <div className="card p-5 text-sm leading-relaxed text-slate-700">
+                    <h4 className="mb-2 text-xs font-semibold text-slate-500">案件管理表反映案</h4>
+                    <p className="mb-1">
+                      <span className="text-xs font-semibold text-slate-500">顧客課題: </span>
+                      {results.deal_sheet_reflection.customer_issues_update}
+                    </p>
+                    <p className="mb-1">
+                      <span className="text-xs font-semibold text-slate-500">提案内容: </span>
+                      {results.deal_sheet_reflection.proposal_content_update}
+                    </p>
+                    <p className="mb-1">
+                      <span className="text-xs font-semibold text-slate-500">懸念点: </span>
+                      {results.deal_sheet_reflection.concerns_update}
+                    </p>
+                    <p>
+                      <span className="text-xs font-semibold text-slate-500">フォロー方針: </span>
+                      {results.deal_sheet_reflection.follow_up_policy_update}
+                    </p>
+                  </div>
                 )}
               </div>
             </section>

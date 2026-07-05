@@ -1,6 +1,8 @@
 "use client";
 
-import { Save, History, Clock, FileAudio } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { Save, History, Clock, FileAudio, Eye, X } from "lucide-react";
 import { createTranscript } from "./actions";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +20,7 @@ export interface TranscriptHistoryItem {
   dealTitle: string;
   companyName: string;
   length: number;
+  rawText: string;
 }
 
 interface Props {
@@ -25,7 +28,52 @@ interface Props {
   history: TranscriptHistoryItem[];
 }
 
+function TranscriptDetailModal({
+  item,
+  onClose,
+}: {
+  item: TranscriptHistoryItem;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">
+              {item.companyName} - {item.dealTitle}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {item.heldAt ?? new Date(item.createdAt).toLocaleDateString("ja-JP")} • 文字数:{" "}
+              {item.length.toLocaleString()}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-5">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{item.rawText}</p>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <Link href={`/feedback/generate?transcriptId=${item.id}`} className="btn-brand btn-sm">
+            FB生成へ進む
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TranscriptionInputClient({ deals, history }: Props) {
+  const [viewingItem, setViewingItem] = useState<TranscriptHistoryItem | null>(null);
+
   return (
     <div className="mx-auto w-full max-w-4xl px-8 py-10">
       <PageHeader title="文字起こしデータの登録" description="商談の文字起こしテキストを保存し、AI生成の対象にします。" />
@@ -83,13 +131,12 @@ export function TranscriptionInputClient({ deals, history }: Props) {
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {history.map((item) => (
-              <a
+              <div
                 key={item.id}
-                href={`/feedback/generate?transcriptId=${item.id}`}
-                className="group card flex flex-col justify-between p-4 transition-colors hover:border-brand-300 sm:flex-row sm:items-center"
+                className="group card flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:text-brand-500">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400">
                     <FileAudio className="h-5 w-5" />
                   </div>
                   <div>
@@ -105,14 +152,31 @@ export function TranscriptionInputClient({ deals, history }: Props) {
                     </div>
                   </div>
                 </div>
-                <span className="mt-3 text-sm font-medium text-brand-600 opacity-0 transition-opacity group-hover:opacity-100 sm:mt-0">
-                  FB生成へ進む →
-                </span>
-              </a>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewingItem(item)}
+                    className="btn-secondary btn-sm"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    全文を見る
+                  </button>
+                  <Link
+                    href={`/feedback/generate?transcriptId=${item.id}`}
+                    className="text-sm font-medium text-brand-600 hover:underline"
+                  >
+                    FB生成へ進む →
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {viewingItem && (
+        <TranscriptDetailModal item={viewingItem} onClose={() => setViewingItem(null)} />
+      )}
     </div>
   );
 }

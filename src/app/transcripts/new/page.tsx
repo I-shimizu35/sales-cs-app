@@ -48,6 +48,7 @@ async function getTranscriptHistory(accessibleCompanyIds: string[] | null): Prom
     dealTitle: t.meeting?.deal?.title ?? "(案件不明)",
     companyName: t.meeting?.deal?.company?.name ?? "(企業不明)",
     length: t.raw_text?.length ?? 0,
+    rawText: t.raw_text ?? "",
   }));
 }
 

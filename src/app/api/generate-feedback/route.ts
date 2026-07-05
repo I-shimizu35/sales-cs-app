@@ -122,10 +122,10 @@ export async function POST(req: NextRequest) {
     });
 
     // 5. 次回提案方針
-    await generateAndSave("next_proposal_policy", {
+    const nextProposal = await generateAndSave("next_proposal_policy", {
       meeting_minutes: JSON.stringify(minutes),
       bant_result: JSON.stringify(bant),
-      current_issues: "",
+      current_issues: deal.customer_issues ?? "",
       goals: "",
     });
 
@@ -144,7 +144,24 @@ export async function POST(req: NextRequest) {
       meeting_count: meetingCount ?? 1,
     });
 
-    // 8. dealsテーブルを更新(AI生成の未確認値として保存)
+    // 8. ヨミ表反映用サマリ
+    await generateAndSave("forecast_reflection", {
+      meeting_minutes: JSON.stringify(minutes),
+      bant_result: JSON.stringify(bant),
+      temperature_score: (temperature as any).score ?? 0,
+      win_probability: (winProb as any).win_probability ?? 0,
+      deal_stage: deal.stage,
+    });
+
+    // 9. 案件管理表反映案
+    await generateAndSave("deal_sheet_reflection", {
+      meeting_minutes: JSON.stringify(minutes),
+      next_proposal_policy: JSON.stringify(nextProposal),
+      current_issues: deal.customer_issues ?? "",
+      proposal_content: deal.proposal_content ?? "",
+    });
+
+    // 10. dealsテーブルを更新(AI生成の未確認値として保存)
     const bantData = bant as any;
     const { error: updateError } = await supabase
       .from("deals")

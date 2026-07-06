@@ -288,17 +288,20 @@ const SIGNED_URL_EXPIRES_IN = 60 * 60 * 24 * 365 * 10;
  * 商談議事録・提案書・見積もりのファイルをSupabase Storageへアップロードし、
  * 対応するURL欄に署名付きURLを保存する。商談動画は既存方針通りGoogle Drive運用のため対象外。
  */
+// 本番ビルドではServer Actionからthrowしたエラーのmessageが汎用文言に丸められて
+// クライアントに渡らない(Next.jsの仕様)ため、ユーザーが実際に踏みうる検証エラーは
+// throwではなく戻り値のerrorとして返す(戻り値は丸められない)。
 export async function uploadDealAttachment(
   dealId: string,
   fieldKey: (typeof UPLOADABLE_FIELDS)[number],
   formData: FormData
-): Promise<{ url: string }> {
+): Promise<{ url: string } | { error: string }> {
   if (!UPLOADABLE_FIELDS.includes(fieldKey)) {
-    throw new Error("アップロード対象のフィールドが不正です。");
+    return { error: "アップロード対象のフィールドが不正です。" };
   }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    throw new Error("ファイルを選択してください。");
+    return { error: "ファイルを選択してください。" };
   }
 
   const supabase = createServerClient();
@@ -308,7 +311,7 @@ export async function uploadDealAttachment(
     .eq("id", dealId)
     .single();
   if (fetchError || !existing) {
-    throw new Error(`案件情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+    return { error: `案件情報の取得に失敗しました: ${fetchError?.message ?? ""}` };
   }
   const actor = await assertOwnerOrClientCompany(
     { ownerUserId: existing.owner_user_id, companyId: existing.company_id },
@@ -317,9 +320,9 @@ export async function uploadDealAttachment(
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_ATTACHMENT_EXTENSIONS.has(ext)) {
-    throw new Error(
-      `この形式のファイルはアップロードできません(対応形式: ${Array.from(ALLOWED_ATTACHMENT_EXTENSIONS).join(", ")})。`
-    );
+    return {
+      error: `この形式のファイルはアップロードできません(対応形式: ${Array.from(ALLOWED_ATTACHMENT_EXTENSIONS).join(", ")})。`,
+    };
   }
 
   const safeName = file.name.replace(/[^\w.\-ぁ-んァ-ヶ一-龠]/g, "_");
@@ -335,14 +338,14 @@ export async function uploadDealAttachment(
     .from(ATTACHMENT_BUCKET)
     .upload(path, fileBuffer, { contentType: "application/octet-stream" });
   if (uploadError) {
-    throw new Error(`ファイルのアップロードに失敗しました: ${uploadError.message}`);
+    return { error: `ファイルのアップロードに失敗しました: ${uploadError.message}` };
   }
 
   const { data: signed, error: signError } = await supabase.storage
     .from(ATTACHMENT_BUCKET)
     .createSignedUrl(path, SIGNED_URL_EXPIRES_IN, { download: safeName });
   if (signError || !signed) {
-    throw new Error(`アップロードURLの発行に失敗しました: ${signError?.message ?? ""}`);
+    return { error: `アップロードURLの発行に失敗しました: ${signError?.message ?? ""}` };
   }
 
   const { error: updateError } = await supabase
@@ -350,7 +353,7 @@ export async function uploadDealAttachment(
     .update({ [fieldKey]: signed.signedUrl })
     .eq("id", dealId);
   if (updateError) {
-    throw new Error(`案件情報の更新に失敗しました: ${updateError.message}`);
+    return { error: `案件情報の更新に失敗しました: ${updateError.message}` };
   }
 
   await recordAuditLog({

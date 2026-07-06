@@ -193,11 +193,11 @@ function UrlInput({
     const formData = new FormData();
     formData.set("file", file);
     startUploadTransition(async () => {
-      try {
-        const { url } = await uploadDealAttachment(dealId, name as Parameters<typeof uploadDealAttachment>[1], formData);
-        setValue(url);
-      } catch (err) {
-        window.alert((err as Error).message);
+      const result = await uploadDealAttachment(dealId, name as Parameters<typeof uploadDealAttachment>[1], formData);
+      if ("error" in result) {
+        window.alert(result.error);
+      } else {
+        setValue(result.url);
       }
     });
     e.target.value = "";

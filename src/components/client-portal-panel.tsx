@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { KeyRound, Copy, Check } from "lucide-react";
+import { KeyRound, Copy, Check, Loader2 } from "lucide-react";
 import { enableClientPortal, disableClientPortal, ClientPortalCredentials } from "@/app/companies/actions";
 
 export function ClientPortalPanel({
@@ -14,11 +14,12 @@ export function ClientPortalPanel({
   const [credentials, setCredentials] = useState<ClientPortalCredentials | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<"url" | "password" | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isEnabling, startEnableTransition] = useTransition();
+  const [isDisabling, startDisableTransition] = useTransition();
 
   function handleEnable() {
     setError(null);
-    startTransition(async () => {
+    startEnableTransition(async () => {
       try {
         const result = await enableClientPortal(companyId);
         setCredentials(result);
@@ -30,7 +31,7 @@ export function ClientPortalPanel({
 
   function handleDisable() {
     setError(null);
-    startTransition(async () => {
+    startDisableTransition(async () => {
       try {
         await disableClientPortal(companyId);
         setCredentials(null);
@@ -104,17 +105,24 @@ export function ClientPortalPanel({
       ) : null}
 
       <div className="flex gap-2">
-        <button type="button" onClick={handleEnable} disabled={isPending} className="btn-secondary btn-sm disabled:opacity-50">
-          {portalEnabled ? "URL・パスワードを再発行" : "クライアントポータルを有効化"}
+        <button
+          type="button"
+          onClick={handleEnable}
+          disabled={isEnabling || isDisabling}
+          className="btn-secondary btn-sm disabled:opacity-50"
+        >
+          {isEnabling && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {isEnabling ? "処理中..." : portalEnabled ? "URL・パスワードを再発行" : "クライアントポータルを有効化"}
         </button>
         {portalEnabled && (
           <button
             type="button"
             onClick={handleDisable}
-            disabled={isPending}
+            disabled={isEnabling || isDisabling}
             className="btn-ghost btn-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
           >
-            無効化
+            {isDisabling && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {isDisabling ? "処理中..." : "無効化"}
           </button>
         )}
       </div>

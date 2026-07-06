@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import Link from "next/link";
 import { updateDealFields } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
@@ -13,10 +14,23 @@ import { DealsTableRow } from "./deals-table";
 export function DealsMobileList({
   rows,
   showCompanyColumn,
+  onLeadCreated,
 }: {
   rows: DealsTableRow[];
   showCompanyColumn: boolean;
+  onLeadCreated: () => void;
 }) {
+  const [, startTransition] = useTransition();
+
+  function handleStageChange(dealId: string, stage: string) {
+    const formData = new FormData();
+    formData.set("stage", stage);
+    startTransition(async () => {
+      const result = await updateDealFields(dealId, formData);
+      if (result.leadCreated) onLeadCreated();
+    });
+  }
+
   return (
     <div className="space-y-2 md:hidden">
       {rows.map((row) => (
@@ -44,20 +58,18 @@ export function DealsMobileList({
               {row.next_action_date ? `(${row.next_action_date})` : ""}
             </p>
           )}
-          <form action={updateDealFields.bind(null, row.id)}>
-            <select
-              name="stage"
-              defaultValue={row.stage}
-              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-              className="field-sm w-full"
-            >
-              {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </form>
+          <select
+            name="stage"
+            defaultValue={row.stage}
+            onChange={(e) => handleStageChange(row.id, e.target.value)}
+            className="field-sm w-full"
+          >
+            {Object.entries(DEAL_STAGE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
       ))}
       {rows.length === 0 && <p className="py-8 text-center text-xs text-slate-400">該当する案件がありません</p>}

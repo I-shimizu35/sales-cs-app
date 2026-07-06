@@ -21,9 +21,11 @@ const STAGE_COLUMN_CLASS: Record<DealStage, string> = {
 export function DealsKanbanBoard({
   rows,
   showCompanyColumn,
+  onLeadCreated,
 }: {
   rows: DealsTableRow[];
   showCompanyColumn: boolean;
+  onLeadCreated: () => void;
 }) {
   const [localRows, setLocalRows] = useState(rows);
   // サーバー再検証(revalidatePath)で親から新しいrowsが渡ってきたら追従する
@@ -55,7 +57,8 @@ export function DealsKanbanBoard({
       try {
         const formData = new FormData();
         formData.set("stage", newStage);
-        await updateDealFields(dealId, formData);
+        const result = await updateDealFields(dealId, formData);
+        if (result.leadCreated) onLeadCreated();
       } catch (e) {
         // 権限不足等でサーバー側が拒否した場合は表示を元に戻す
         setLocalRows(previousRows);

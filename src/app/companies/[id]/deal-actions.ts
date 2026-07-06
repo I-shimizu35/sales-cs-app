@@ -72,9 +72,9 @@ async function maybeAutoCreateLeadFromLostDeal(
     dealTitle: string;
     ownerUserId: string | null;
   }
-): Promise<void> {
-  if (params.newStage !== "lost") return;
-  if (params.previousStage === "lost") return;
+): Promise<boolean> {
+  if (params.newStage !== "lost") return false;
+  if (params.previousStage === "lost") return false;
 
   const [{ data: company }, { data: deal }] = await Promise.all([
     supabase.from("companies").select("name").eq("id", params.companyId).maybeSingle(),
@@ -103,7 +103,9 @@ async function maybeAutoCreateLeadFromLostDeal(
   });
   if (error) {
     console.warn("失注案件のリード自動登録に失敗しました:", error.message);
+    return false;
   }
+  return true;
 }
 
 export async function createDeal(companyId: string, formData: FormData): Promise<void> {
@@ -463,7 +465,10 @@ export async function duplicateDeal(dealId: string): Promise<{ id: string }> {
  * 案件管理表(ヨミ表統合)からの汎用更新。フォームに含まれるフィールドのみ更新する。
  * クライアントポータルからも呼ばれるため、meeting_feedbackは社内スタッフのみ反映する。
  */
-export async function updateDealFields(dealId: string, formData: FormData): Promise<void> {
+export async function updateDealFields(
+  dealId: string,
+  formData: FormData
+): Promise<{ leadCreated: boolean }> {
   const supabase = createServerClient();
 
   const { data: existing, error: fetchError } = await supabase
@@ -516,7 +521,7 @@ export async function updateDealFields(dealId: string, formData: FormData): Prom
     }
   }
 
-  if (Object.keys(update).length === 0) return;
+  if (Object.keys(update).length === 0) return { leadCreated: false };
 
   const { error } = await supabase.from("deals").update(update).eq("id", dealId);
   if (error) {
@@ -531,8 +536,9 @@ export async function updateDealFields(dealId: string, formData: FormData): Prom
     detail: { fields: Object.keys(update) },
   });
 
+  let leadCreated = false;
   if (newStage) {
-    await maybeAutoCreateLeadFromLostDeal(supabase, {
+    leadCreated = await maybeAutoCreateLeadFromLostDeal(supabase, {
       dealId,
       companyId: existing.company_id,
       previousStage: existing.stage as DealStage,
@@ -550,4 +556,6 @@ export async function updateDealFields(dealId: string, formData: FormData): Prom
   revalidatePath("/client/analytics");
   revalidatePath(`/companies/${existing.company_id}`);
   revalidatePath("/");
+
+  return { leadCreated };
 }

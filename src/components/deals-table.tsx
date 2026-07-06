@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip, Copy, Table2, LayoutGrid } from "lucide-react";
+import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip, Copy, Table2, LayoutGrid, UserPlus, X, Loader2 } from "lucide-react";
 import { updateDealFields, deleteDeal, duplicateDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
@@ -86,6 +86,10 @@ const OPTIONAL_COLUMNS: { key: string; label: string }[] = [
 ];
 const COLUMN_STORAGE_KEY = "deals-table-hidden-columns";
 const VIEW_MODE_STORAGE_KEY = "deals-table-view-mode";
+// Server Action完了後、Next.jsが自動でこのページを再取得(revalidatePath)する際に
+// DealsTableが再マウントされ通知用のuseStateが失われることがあるため、
+// sessionStorageを経由して再マウント後も通知を表示できるようにする。
+const LEAD_CREATED_NOTICE_KEY = "deals-table-lead-created-notice";
 
 function elapsedDaysLabel(lastContactDate: string | null): string {
   if (!lastContactDate) return "-";
@@ -239,7 +243,7 @@ function UrlInput({
   );
 }
 
-function SaveButton({ formId }: { formId: string }) {
+function SaveButton({ formId, onLeadCreated }: { formId: string; onLeadCreated: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
 
@@ -249,9 +253,10 @@ function SaveButton({ formId }: { formId: string }) {
     if (!form) return;
     const formData = new FormData(form);
     startTransition(async () => {
-      await updateDealFields(form.dataset.dealId as string, formData);
+      const result = await updateDealFields(form.dataset.dealId as string, formData);
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
+      if (result.leadCreated) onLeadCreated();
     });
   }
 
@@ -284,9 +289,9 @@ function DuplicateButton({ dealId }: { dealId: string }) {
       onClick={handleClick}
       disabled={isPending}
       className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
-      title="この案件を複製(構造項目のみ引き継いだ新規案件を作成)"
+      title={isPending ? "複製中..." : "この案件を複製(構造項目のみ引き継いだ新規案件を作成)"}
     >
-      <Copy className="h-3.5 w-3.5" />
+      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 }
@@ -332,6 +337,25 @@ export function DealsTable({
   // ダッシュボードのサマリーカードからのドリルダウン用に、URLの?stage=をそのまま初期値として使う
   const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") ?? "");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+  const [showLeadCreatedBanner, setShowLeadCreatedBanner] = useState(false);
+
+  function handleLeadCreated() {
+    sessionStorage.setItem(LEAD_CREATED_NOTICE_KEY, "1");
+    setShowLeadCreatedBanner(true);
+  }
+
+  function dismissLeadCreatedBanner() {
+    sessionStorage.removeItem(LEAD_CREATED_NOTICE_KEY);
+    setShowLeadCreatedBanner(false);
+  }
+
+  useEffect(() => {
+    // Server Action完了直後の自動再取得でこのコンポーネントが再マウントされても、
+    // sessionStorageに通知フラグが残っていれば表示し続ける
+    if (sessionStorage.getItem(LEAD_CREATED_NOTICE_KEY) === "1") {
+      setShowLeadCreatedBanner(true);
+    }
+  }, []);
 
   useEffect(() => {
     const storedView = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
@@ -399,8 +423,28 @@ export function DealsTable({
     }
   }
 
+  const leadsHref = isClient ? "/client/leads" : `/companies/${rows[0]?.companyId}/workspace/leads`;
+
   return (
     <div>
+      {showLeadCreatedBanner && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-800">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4 shrink-0" />
+            <span>案件を失注にしたため、リードとして自動登録しました。</span>
+            <Link href={leadsHref} className="font-medium underline hover:no-underline">
+              リード一覧を見る
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowLeadCreatedBanner(false)}
+            className="shrink-0 text-brand-400 hover:text-brand-700"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -454,11 +498,11 @@ export function DealsTable({
         </div>
       </div>
 
-      <DealsMobileList rows={filteredRows} showCompanyColumn={showCompanyColumn} />
+      <DealsMobileList rows={filteredRows} showCompanyColumn={showCompanyColumn} onLeadCreated={handleLeadCreated} />
 
       <div className="hidden md:block">
       {viewMode === "kanban" ? (
-        <DealsKanbanBoard rows={filteredRows} showCompanyColumn={showCompanyColumn} />
+        <DealsKanbanBoard rows={filteredRows} showCompanyColumn={showCompanyColumn} onLeadCreated={handleLeadCreated} />
       ) : (
       <div className="card overflow-x-auto">
         <table className="w-full text-left text-xs">
@@ -512,7 +556,7 @@ export function DealsTable({
                 <tr key={row.id} className="hover:bg-slate-50/60">
                   <Cell>
                     <form id={formId} data-deal-id={row.id} className="hidden" />
-                    <SaveButton formId={formId} />
+                    <SaveButton formId={formId} onLeadCreated={handleLeadCreated} />
                   </Cell>
                   <Cell>{i + 1}</Cell>
                   <Cell>

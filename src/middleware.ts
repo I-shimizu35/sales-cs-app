@@ -43,6 +43,12 @@ export async function middleware(request: NextRequest) {
     return handleClientPortalRequest(request);
   }
 
+  // Vercel Cronからのサーバー間呼び出しはSupabase Authのセッションを持たないため、
+  // ここでミドルウェアの認証チェックを素通りさせる。認可自体はルート側のCRON_SECRET検証で行う。
+  if (pathname.startsWith("/api/cron")) {
+    return NextResponse.next();
+  }
+
   const { response: sessionResponse, user } = await updateSession(request);
 
   if (isPublicPath(pathname)) {

@@ -4,6 +4,8 @@
 
 export type UserRole = "admin" | "manager" | "cs" | "sales" | "support";
 
+export type NotifyFrequency = "daily" | "weekly";
+
 export interface AppUser {
   id: string;
   auth_user_id: string | null;
@@ -11,6 +13,8 @@ export interface AppUser {
   email: string;
   role: UserRole;
   status: "active" | "inactive";
+  notify_overdue_actions: boolean;
+  notify_frequency: NotifyFrequency;
 }
 
 export type DealStatus = "prospect" | "in_progress" | "won" | "lost" | "dormant";

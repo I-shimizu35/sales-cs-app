@@ -13,8 +13,21 @@ export async function updateOwnProfile(formData: FormData): Promise<void> {
     throw new Error("氏名を入力してください。");
   }
 
+  const notifyOverdueActions = formData.get("notify_overdue_actions") === "on";
+  const notifyFrequency = formData.get("notify_frequency");
+  if (notifyFrequency !== "daily" && notifyFrequency !== "weekly") {
+    throw new Error("通知頻度の値が不正です。");
+  }
+
   const supabase = createServerClient();
-  const { error } = await supabase.from("users").update({ name: name.trim() }).eq("id", currentUser.id);
+  const { error } = await supabase
+    .from("users")
+    .update({
+      name: name.trim(),
+      notify_overdue_actions: notifyOverdueActions,
+      notify_frequency: notifyFrequency,
+    })
+    .eq("id", currentUser.id);
   if (error) throw new Error(`プロフィールの更新に失敗しました: ${error.message}`);
 
   revalidatePath("/profile");

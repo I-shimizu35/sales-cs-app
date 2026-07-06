@@ -7,6 +7,9 @@ import { recordError } from "@/lib/error-log";
  * Vercel Cronから毎日呼ばれ、期日超過(due_date < 今日 かつ status != done)の
  * 次回アクションを担当者ごとに集計し、ダイジェストメールを送る。
  * assignee_id未設定の項目は宛先が定まらないため通知対象外。
+ * ユーザーごとの通知設定(受け取る/受け取らない、毎日/毎週月曜のみ)を
+ * /profileで変更でき、ここではそれに従って送信をスキップする
+ * (「毎週月曜のみ」はcron自体は毎日呼ばれたまま、月曜以外は処理内でスキップする設計)。
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
@@ -49,17 +52,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const { data: assignees, error: usersError } = await supabase
     .from("users")
-    .select("id, name, email")
+    .select("id, name, email, notify_overdue_actions, notify_frequency")
     .in("id", Array.from(byAssignee.keys()));
   if (usersError) {
     return NextResponse.json({ error: usersError.message }, { status: 500 });
   }
 
+  // 「毎週月曜のみ」希望者は月曜以外はスキップする(cronはVercel Cron側の設定を変えず毎日呼ばれる前提)
+  const isMonday = new Date().getDay() === 1;
+
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
   for (const user of assignees ?? []) {
     const list = byAssignee.get(user.id) ?? [];
     if (list.length === 0) continue;
+    if (!user.notify_overdue_actions) {
+      skipped += 1;
+      continue;
+    }
+    if (user.notify_frequency === "weekly" && !isMonday) {
+      skipped += 1;
+      continue;
+    }
     const lines = list.map(
       (item) =>
         `・${item.deals?.companies?.name ?? "不明な企業"} / ${item.deals?.title ?? "不明な案件"} 「${item.title}」(期日: ${item.due_date})`
@@ -78,5 +93,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ sent, failed });
+  return NextResponse.json({ sent, failed, skipped });
 }

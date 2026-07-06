@@ -46,6 +46,27 @@ export default async function ProfilePage() {
           <input value={ROLE_LABEL[user.role]} disabled className="field bg-slate-50 text-slate-400" />
           <p className="mt-1 text-xs text-slate-400">ロールの変更は管理者にご依頼ください。</p>
         </div>
+
+        <div className="border-t border-slate-100 pt-5">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">通知設定</h3>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="notify_overdue_actions"
+              defaultChecked={user.notify_overdue_actions}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            期日超過の次回アクションをメールで通知する
+          </label>
+          <div className="mt-3">
+            <label className="field-label">通知頻度</label>
+            <select name="notify_frequency" defaultValue={user.notify_frequency} className="field w-auto">
+              <option value="daily">毎日</option>
+              <option value="weekly">毎週月曜のみ</option>
+            </select>
+          </div>
+        </div>
+
         <div className="flex justify-end">
           <button type="submit" className="btn-brand">
             保存する

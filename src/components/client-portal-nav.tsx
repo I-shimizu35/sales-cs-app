@@ -14,6 +14,7 @@ import {
   ChevronsRight,
   Menu,
   X,
+  Search,
 } from "lucide-react";
 import { logoutClient } from "@/app/client/login/actions";
 
@@ -65,6 +66,22 @@ export function ClientPortalNav() {
             </span>
           )}
         </div>
+
+        {!isCollapsed && (
+          <form action="/client/search" className="px-3 pb-3">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 focus-within:border-brand-300">
+              <button type="submit" title="検索" className="shrink-0 text-slate-400 hover:text-slate-600">
+                <Search className="h-3.5 w-3.5" />
+              </button>
+              <input
+                type="text"
+                name="q"
+                placeholder="案件・リードを検索"
+                className="w-full border-0 bg-transparent p-0 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              />
+            </div>
+          </form>
+        )}
 
         <nav className="flex-1 space-y-0.5 px-3">
           {NAV_ITEMS.map((item) => {

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight } from "lucide-react";
-import { Company } from "@/lib/types";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight, X } from "lucide-react";
+import { Company, SupportPhase } from "@/lib/types";
 import {
   DEAL_STATUS_LABEL,
   DEAL_STATUS_BADGE_CLASS,
@@ -36,15 +36,25 @@ export function CompanyListClient({
   companies,
   canCreateCompany,
   supporterNamesByCompany,
+  supporterIdsByCompany,
 }: {
   companies: CompanyWithOwner[];
   canCreateCompany: boolean;
   supporterNamesByCompany: Record<string, string[]>;
+  supporterIdsByCompany: Record<string, string[]>;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [industryFilter, setIndustryFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+
+  // ダッシュボードのKPIカードからのドリルダウン用: URLクエリパラメータをそのまま絞り込み条件として使う
+  const supportStatusParam = searchParams.get("supportStatus");
+  const phaseParam = searchParams.get("phase") as SupportPhase | null;
+  const ownerParam = searchParams.get("owner");
+  const supporterParam = searchParams.get("supporterId");
+  const hasUrlFilter = !!(supportStatusParam || phaseParam || ownerParam || supporterParam);
 
   const industries = useMemo(
     () => Array.from(new Set(companies.map((c) => c.industry).filter(Boolean))) as string[],
@@ -56,9 +66,23 @@ export function CompanyListClient({
       if (searchTerm && !c.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (industryFilter && c.industry !== industryFilter) return false;
       if (statusFilter && c.deal_status !== statusFilter) return false;
+      if (supportStatusParam && c.support_status !== supportStatusParam) return false;
+      if (phaseParam && c.support_phase !== phaseParam) return false;
+      if (ownerParam && c.owner_user_id !== ownerParam) return false;
+      if (supporterParam && !(supporterIdsByCompany[c.id] ?? []).includes(supporterParam)) return false;
       return true;
     });
-  }, [companies, searchTerm, industryFilter, statusFilter]);
+  }, [
+    companies,
+    searchTerm,
+    industryFilter,
+    statusFilter,
+    supportStatusParam,
+    phaseParam,
+    ownerParam,
+    supporterParam,
+    supporterIdsByCompany,
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-7xl px-8 py-10">
@@ -76,6 +100,16 @@ export function CompanyListClient({
           </button>
         }
       />
+
+      {hasUrlFilter && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800">
+          <span>ダッシュボードからの絞り込みが適用されています({filtered.length}件)</span>
+          <Link href="/companies" className="flex items-center gap-1 text-xs font-medium hover:underline">
+            <X className="h-3.5 w-3.5" />
+            絞り込みを解除
+          </Link>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">

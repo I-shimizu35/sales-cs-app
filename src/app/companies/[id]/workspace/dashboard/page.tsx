@@ -24,19 +24,27 @@ export default async function WorkspaceDashboardPage({ params }: { params: { id:
   return (
     <div>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard icon={<Briefcase className="h-4 w-4" />} label="案件数" value={allDeals.length} unit="件" />
+        <SummaryCard
+          icon={<Briefcase className="h-4 w-4" />}
+          label="案件数"
+          value={allDeals.length}
+          unit="件"
+          href={`/companies/${params.id}/workspace/deals`}
+        />
         <SummaryCard
           icon={<Target className="h-4 w-4" />}
           label="ヨミ件数"
           value={yomiSummary.yomiCount}
           unit="件"
           accent="text-brand-600"
+          href={`/companies/${params.id}/workspace/deals`}
         />
         <SummaryCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="見込み受注金額"
           value={`¥${yomiSummary.expectedRevenueTotal.toLocaleString()}`}
           accent="text-emerald-600"
+          href={`/companies/${params.id}/workspace/deals`}
         />
         <SummaryCard
           icon={<CheckCircle2 className="h-4 w-4" />}
@@ -44,6 +52,7 @@ export default async function WorkspaceDashboardPage({ params }: { params: { id:
           value={wonThisMonthCount}
           unit="件"
           accent="text-emerald-600"
+          href={`/companies/${params.id}/workspace/deals?stage=won`}
         />
       </div>
       <PipelineFunnel deals={allDeals} />

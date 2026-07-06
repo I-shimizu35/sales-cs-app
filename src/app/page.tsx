@@ -142,7 +142,7 @@ export default async function DashboardPage() {
       <PageHeader title="クライアント一覧" description="支援先クライアントの状況と担当者を一目で確認できます。" />
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="card p-5">
+        <Link href="/companies" className="card p-5 transition-colors hover:border-brand-300">
           <div className="mb-2 flex items-center gap-2 text-slate-500">
             <Building2 className="h-4 w-4" />
             <h2 className="text-sm font-medium">クライアント数</h2>
@@ -151,8 +151,8 @@ export default async function DashboardPage() {
             {roster.length}
             <span className="ml-1 text-sm font-normal text-slate-500">社</span>
           </div>
-        </div>
-        <div className="card p-5">
+        </Link>
+        <Link href="/companies?supportStatus=active" className="card p-5 transition-colors hover:border-brand-300">
           <div className="mb-2 flex items-center gap-2 text-emerald-600">
             <Users className="h-4 w-4" />
             <h2 className="text-sm font-medium">支援中</h2>
@@ -161,7 +161,7 @@ export default async function DashboardPage() {
             {activeCount}
             <span className="ml-1 text-sm font-normal text-slate-500">社</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {contractRenewalSoon.length > 0 && (
@@ -199,12 +199,13 @@ export default async function DashboardPage() {
           </h2>
           <div className="card flex flex-wrap gap-3 p-4">
             {phaseSummary.map((p) => (
-              <span
+              <Link
                 key={p.phase}
-                className={`badge ${SUPPORT_PHASE_BADGE_CLASS[p.phase]}`}
+                href={`/companies?phase=${p.phase}&supportStatus=active`}
+                className={`badge transition-opacity hover:opacity-75 ${SUPPORT_PHASE_BADGE_CLASS[p.phase]}`}
               >
                 {SUPPORT_PHASE_LABEL[p.phase]} {p.count}社
-              </span>
+              </Link>
             ))}
           </div>
         </div>
@@ -228,9 +229,24 @@ export default async function DashboardPage() {
               <tbody className="divide-y divide-slate-100">
                 {supporterWorkload.map((s) => (
                   <tr key={s.userId} className="hover:bg-slate-50/60">
-                    <td className="whitespace-nowrap px-6 py-2.5 font-medium text-slate-900">{s.name}</td>
-                    <td className="whitespace-nowrap px-6 py-2.5 text-slate-600">{s.activeCount}社</td>
-                    <td className="whitespace-nowrap px-6 py-2.5 text-slate-400">{s.totalCount}社</td>
+                    <td className="whitespace-nowrap px-6 py-2.5 font-medium text-slate-900">
+                      <Link href={`/companies?supporterId=${s.userId}`} className="hover:text-brand-600 hover:underline">
+                        {s.name}
+                      </Link>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-2.5 text-slate-600">
+                      <Link
+                        href={`/companies?supporterId=${s.userId}&supportStatus=active`}
+                        className="hover:text-brand-600 hover:underline"
+                      >
+                        {s.activeCount}社
+                      </Link>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-2.5 text-slate-400">
+                      <Link href={`/companies?supporterId=${s.userId}`} className="hover:text-brand-600 hover:underline">
+                        {s.totalCount}社
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

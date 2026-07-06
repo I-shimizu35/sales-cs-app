@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip } from "lucide-react";
 import { updateDealFields, deleteDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
@@ -300,9 +301,11 @@ export function DealsTable({
   showCompanyColumn: boolean;
   isClient: boolean;
 }) {
+  const searchParams = useSearchParams();
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [keyword, setKeyword] = useState("");
-  const [stageFilter, setStageFilter] = useState("");
+  // ダッシュボードのサマリーカードからのドリルダウン用に、URLの?stage=をそのまま初期値として使う
+  const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") ?? "");
 
   useEffect(() => {
     const stored = localStorage.getItem(COLUMN_STORAGE_KEY);

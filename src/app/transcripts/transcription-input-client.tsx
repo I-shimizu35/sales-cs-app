@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Save, History, Clock, FileAudio, Eye, X } from "lucide-react";
 import { createTranscript } from "./actions";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/empty-state";
 export interface DealOption {
   id: string;
   title: string;
+  companyId: string;
   companyName: string;
 }
 
@@ -73,6 +74,20 @@ function TranscriptDetailModal({
 
 export function TranscriptionInputClient({ deals, history }: Props) {
   const [viewingItem, setViewingItem] = useState<TranscriptHistoryItem | null>(null);
+  const [companyId, setCompanyId] = useState<string>("");
+
+  const companies = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of deals) map.set(d.companyId, d.companyName);
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  }, [deals]);
+
+  const dealsForCompany = useMemo(
+    () => (companyId ? deals.filter((d) => d.companyId === companyId) : deals),
+    [deals, companyId]
+  );
 
   return (
     <div className="mx-auto w-full max-w-4xl px-8 py-10">
@@ -86,19 +101,34 @@ export function TranscriptionInputClient({ deals, history }: Props) {
         <form action={createTranscript} className="card mb-12 space-y-6 p-6">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
+              <label className="field-label">企業を検索</label>
+              <select
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                className="field"
+              >
+                <option value="">企業: すべて</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="field-label">対象案件</label>
               <select name="deal_id" required className="field">
-                {deals.map((d) => (
+                {dealsForCompany.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.companyName} - {d.title}
                   </option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="field-label">商談日</label>
-              <input type="date" name="held_at" className="field" />
-            </div>
+          </div>
+          <div>
+            <label className="field-label">商談日</label>
+            <input type="date" name="held_at" className="field md:w-1/2" />
           </div>
 
           <div>

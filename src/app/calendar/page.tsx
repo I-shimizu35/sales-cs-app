@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { createServerClient } from "@/lib/supabase";
 import { PageHeader } from "@/components/page-header";
+import { CalendarCompanyFilter } from "@/components/calendar-company-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,7 @@ function monthParam(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
-async function getActionsInRange(fromIso: string, toIso: string): Promise<ActionRow[]> {
+async function getActionsInRange(fromIso: string, toIso: string, companyId?: string): Promise<ActionRow[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("action_items")
@@ -41,6 +43,7 @@ async function getActionsInRange(fromIso: string, toIso: string): Promise<Action
   const todayStr = new Date().toISOString().slice(0, 10);
   return ((data ?? []) as any[])
     .filter((item) => item.deals?.company_id)
+    .filter((item) => !companyId || item.deals.company_id === companyId)
     .map((item) => ({
       id: item.id,
       title: item.title,
@@ -51,7 +54,18 @@ async function getActionsInRange(fromIso: string, toIso: string): Promise<Action
     }));
 }
 
-export default async function CalendarPage({ searchParams }: { searchParams: { month?: string } }) {
+async function getCompanyOptions(): Promise<{ id: string; name: string }[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.from("companies").select("id, name").order("name");
+  if (error) throw new Error(`企業一覧の取得に失敗しました: ${error.message}`);
+  return data ?? [];
+}
+
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: { month?: string; companyId?: string };
+}) {
   const { year, month } = parseMonthParam(searchParams.month);
 
   const firstOfMonth = new Date(year, month, 1);
@@ -63,7 +77,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
   gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
 
   const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
-  const actions = await getActionsInRange(toIsoDate(gridStart), toIsoDate(gridEnd));
+  const [actions, companies] = await Promise.all([
+    getActionsInRange(toIsoDate(gridStart), toIsoDate(gridEnd), searchParams.companyId),
+    getCompanyOptions(),
+  ]);
 
   const actionsByDate: Record<string, ActionRow[]> = {};
   for (const a of actions) {
@@ -80,12 +97,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
   const nextMonth = new Date(year, month + 1, 1);
   const todayStr = toIsoDate(new Date());
 
+  const companyQuerySuffix = searchParams.companyId ? `&companyId=${searchParams.companyId}` : "";
+
   return (
     <div className="mx-auto w-full max-w-6xl px-8 py-10">
       <PageHeader title="次回アクションカレンダー" description="全クライアントの次回アクションを月表示で確認できます。" />
 
       <div className="mb-4 flex items-center justify-between">
-        <Link href={`/calendar?month=${monthParam(prevMonth.getFullYear(), prevMonth.getMonth())}`} className="btn-secondary btn-sm">
+        <Link
+          href={`/calendar?month=${monthParam(prevMonth.getFullYear(), prevMonth.getMonth())}${companyQuerySuffix}`}
+          className="btn-secondary btn-sm"
+        >
           <ChevronLeft className="h-4 w-4" />
           前月
         </Link>
@@ -93,10 +115,19 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
           <CalendarDays className="h-5 w-5 text-brand-600" />
           {year}年{month + 1}月
         </h2>
-        <Link href={`/calendar?month=${monthParam(nextMonth.getFullYear(), nextMonth.getMonth())}`} className="btn-secondary btn-sm">
+        <Link
+          href={`/calendar?month=${monthParam(nextMonth.getFullYear(), nextMonth.getMonth())}${companyQuerySuffix}`}
+          className="btn-secondary btn-sm"
+        >
           翌月
           <ChevronRight className="h-4 w-4" />
         </Link>
+      </div>
+
+      <div className="mb-4">
+        <Suspense>
+          <CalendarCompanyFilter companies={companies} />
+        </Suspense>
       </div>
 
       <div className="card overflow-hidden">

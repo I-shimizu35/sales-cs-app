@@ -122,6 +122,60 @@ export async function updateActionItemStatus(
   revalidateActionItemPaths(deal.company_id);
 }
 
+/**
+ * 次回アクションのタイトル・期日・担当者をまとめて更新する(ステータスはupdateActionItemStatusで別管理)。
+ */
+export async function updateActionItem(actionItemId: string, formData: FormData): Promise<void> {
+  const title = formData.get("title");
+  const dueDate = formData.get("due_date");
+  if (typeof title !== "string" || title.trim() === "") {
+    throw new Error("アクション内容は必須です。");
+  }
+  if (typeof dueDate !== "string" || dueDate === "") {
+    throw new Error("期日は必須です。");
+  }
+
+  const supabase = createServerClient();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("action_items")
+    .select("deal_id, deals(owner_user_id, company_id)")
+    .eq("id", actionItemId)
+    .single();
+  if (fetchError || !existing) {
+    throw new Error(`次回アクションの取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  const deal = (existing as any).deals;
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: deal.owner_user_id, companyId: deal.company_id },
+    "案件"
+  );
+
+  const assigneeId = formData.get("assignee_id");
+
+  const { error } = await supabase
+    .from("action_items")
+    .update({
+      title: title.trim(),
+      due_date: dueDate,
+      assignee_id: (assigneeId as string) || null,
+    })
+    .eq("id", actionItemId);
+  if (error) {
+    throw new Error(`次回アクションの更新に失敗しました: ${error.message}`);
+  }
+
+  await recordAuditLog({
+    userId: userIdOfActor(actor),
+    action: "update",
+    targetType: "action_item",
+    targetId: actionItemId,
+    detail: { fields: ["title", "due_date", "assignee_id"] },
+  });
+
+  revalidateActionItemPaths(deal.company_id);
+}
+
 export async function deleteActionItem(actionItemId: string, dealId: string): Promise<void> {
   const supabase = createServerClient();
   const deal = await getDealForGuard(supabase, dealId);

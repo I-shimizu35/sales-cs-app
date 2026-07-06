@@ -8,7 +8,7 @@ async function getDealOptions(accessibleCompanyIds: string[] | null): Promise<De
   const supabase = createServerClient();
   let query = supabase
     .from("deals")
-    .select("id, title, company:companies(name)")
+    .select("id, title, company_id, company:companies(name)")
     .order("created_at", { ascending: false });
   if (accessibleCompanyIds) query = query.in("company_id", accessibleCompanyIds);
   const { data, error } = await query;
@@ -19,6 +19,7 @@ async function getDealOptions(accessibleCompanyIds: string[] | null): Promise<De
   return (data ?? []).map((d: any) => ({
     id: d.id,
     title: d.title,
+    companyId: d.company_id,
     companyName: d.company?.name ?? "(企業不明)",
   }));
 }

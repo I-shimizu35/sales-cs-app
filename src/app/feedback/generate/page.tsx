@@ -23,9 +23,11 @@ async function getTranscriptOptions(accessibleCompanyIds: string[] | null): Prom
 
   return scoped.slice(0, 30).map((t: any) => ({
     id: t.id,
+    companyId: t.meeting?.deal?.company_id ?? "",
+    companyName: t.meeting?.deal?.company?.name ?? "(企業不明)",
     label: `${t.meeting?.held_at ?? new Date(t.created_at).toLocaleDateString("ja-JP")} - ${
-      t.meeting?.deal?.company?.name ?? "(企業不明)"
-    } ${t.meeting?.deal?.title ?? ""}`,
+      t.meeting?.deal?.title ?? ""
+    }`,
   }));
 }
 

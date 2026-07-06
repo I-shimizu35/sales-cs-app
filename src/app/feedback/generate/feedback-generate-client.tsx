@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { FileText, Sparkles, CheckCircle2, Target, BarChart3, MessageSquareText, Check } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { storeFeedbackToDeal } from "./actions";
 
 export interface TranscriptOption {
   id: string;
+  companyId: string;
+  companyName: string;
   label: string;
 }
 
@@ -98,6 +100,8 @@ export function FeedbackGenerateClient({
   transcripts: TranscriptOption[];
   initialTranscriptId?: string;
 }) {
+  const initialTranscript = transcripts.find((t) => t.id === initialTranscriptId);
+  const [companyId, setCompanyId] = useState<string>(initialTranscript?.companyId ?? "");
   const [selectedId, setSelectedId] = useState<string>(
     initialTranscriptId ?? transcripts[0]?.id ?? ""
   );
@@ -107,6 +111,27 @@ export function FeedbackGenerateClient({
   const [dealId, setDealId] = useState<string | null>(null);
   const [isStoring, startStoring] = useTransition();
   const [stored, setStored] = useState(false);
+
+  const companies = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of transcripts) map.set(t.companyId, t.companyName);
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  }, [transcripts]);
+
+  const transcriptsForCompany = useMemo(
+    () => (companyId ? transcripts.filter((t) => t.companyId === companyId) : transcripts),
+    [transcripts, companyId]
+  );
+
+  function handleCompanyChange(newCompanyId: string) {
+    setCompanyId(newCompanyId);
+    const scoped = newCompanyId ? transcripts.filter((t) => t.companyId === newCompanyId) : transcripts;
+    if (!scoped.some((t) => t.id === selectedId)) {
+      setSelectedId(scoped[0]?.id ?? "");
+    }
+  }
 
   async function handleGenerate() {
     if (!selectedId) return;
@@ -160,11 +185,28 @@ export function FeedbackGenerateClient({
         </div>
       ) : (
         <div className="card mb-8 p-6">
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="field-label">企業を検索</label>
+              <select
+                value={companyId}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                className="field"
+              >
+                <option value="">企業: すべて</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="flex flex-col items-end gap-4 md:flex-row">
             <div className="w-full flex-1">
               <label className="field-label">対象の文字起こしデータ</label>
               <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className="field">
-                {transcripts.map((t) => (
+                {transcriptsForCompany.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
                   </option>

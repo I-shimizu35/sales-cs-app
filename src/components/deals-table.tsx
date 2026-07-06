@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip, Copy } from "lucide-react";
+import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip, Copy, Table2, LayoutGrid } from "lucide-react";
 import { updateDealFields, deleteDeal, duplicateDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
+import { DealsKanbanBoard } from "./deals-kanban-board";
 
 export interface DealsTableRow {
   id: string;
@@ -83,6 +84,7 @@ const OPTIONAL_COLUMNS: { key: string; label: string }[] = [
   { key: "quote_doc_url", label: "見積もり" },
 ];
 const COLUMN_STORAGE_KEY = "deals-table-hidden-columns";
+const VIEW_MODE_STORAGE_KEY = "deals-table-view-mode";
 
 function elapsedDaysLabel(lastContactDate: string | null): string {
   if (!lastContactDate) return "-";
@@ -328,6 +330,17 @@ export function DealsTable({
   const [keyword, setKeyword] = useState("");
   // ダッシュボードのサマリーカードからのドリルダウン用に、URLの?stage=をそのまま初期値として使う
   const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") ?? "");
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+
+  useEffect(() => {
+    const storedView = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (storedView === "kanban" || storedView === "table") setViewMode(storedView);
+  }, []);
+
+  function handleViewModeChange(mode: "table" | "kanban") {
+    setViewMode(mode);
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
@@ -408,6 +421,28 @@ export function DealsTable({
         </select>
         <span className="text-xs text-slate-400">{filteredRows.length}件 / 全{rows.length}件</span>
         <div className="ml-auto flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg border border-slate-200">
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("table")}
+              title="テーブル表示"
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${
+                viewMode === "table" ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <Table2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("kanban")}
+              title="カンバン表示(ドラッグ&ドロップでステータス変更)"
+              className={`flex items-center gap-1 border-l border-slate-200 px-2.5 py-1.5 text-xs font-medium ${
+                viewMode === "kanban" ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <button type="button" onClick={handleExportCsv} className="btn-secondary btn-sm">
             <Download className="h-3.5 w-3.5" />
             CSVダウンロード
@@ -416,6 +451,9 @@ export function DealsTable({
         </div>
       </div>
 
+      {viewMode === "kanban" ? (
+        <DealsKanbanBoard rows={filteredRows} showCompanyColumn={showCompanyColumn} />
+      ) : (
       <div className="card overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
@@ -671,6 +709,7 @@ export function DealsTable({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

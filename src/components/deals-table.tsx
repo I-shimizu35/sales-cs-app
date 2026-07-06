@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip } from "lucide-react";
-import { updateDealFields, deleteDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
+import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Paperclip, Copy } from "lucide-react";
+import { updateDealFields, deleteDeal, duplicateDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
 
@@ -262,6 +262,28 @@ function SaveButton({ formId }: { formId: string }) {
     >
       {saved ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
       更新
+    </button>
+  );
+}
+
+function DuplicateButton({ dealId }: { dealId: string }) {
+  const [isPending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      await duplicateDeal(dealId);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
+      title="この案件を複製(構造項目のみ引き継いだ新規案件を作成)"
+    >
+      <Copy className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -634,11 +656,14 @@ export function DealsTable({
                     />
                   </Cell>
                   <Cell>
-                    <form action={deleteDeal.bind(null, row.id)} onSubmit={(e) => handleDeleteSubmit(e, row.title)}>
-                      <button type="submit" className="text-slate-400 hover:text-red-600" title="この案件を削除">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </form>
+                    <div className="flex items-center gap-2">
+                      <DuplicateButton dealId={row.id} />
+                      <form action={deleteDeal.bind(null, row.id)} onSubmit={(e) => handleDeleteSubmit(e, row.title)}>
+                        <button type="submit" className="text-slate-400 hover:text-red-600" title="この案件を削除">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    </div>
                   </Cell>
                 </tr>
               );

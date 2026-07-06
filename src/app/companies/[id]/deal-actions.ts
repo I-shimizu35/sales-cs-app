@@ -407,6 +407,59 @@ export async function deleteDeal(dealId: string): Promise<void> {
 }
 
 /**
+ * 既存案件を複製して新規案件として作成する(テンプレート化)。
+ * 案件区分・担当者・流入経路等の構造的な項目のみ引き継ぎ、金額・日程・スコア・
+ * 添付ファイル・商談FB等その案件サイクル固有の情報は引き継がない(新規案件として空の状態にする)。
+ */
+export async function duplicateDeal(dealId: string): Promise<{ id: string }> {
+  const supabase = createServerClient();
+  const { data: original, error: fetchError } = await supabase
+    .from("deals")
+    .select("company_id, owner_user_id, title, deal_category, contact_name, contact_title, lead_source")
+    .eq("id", dealId)
+    .single();
+  if (fetchError || !original) {
+    throw new Error(`案件情報の取得に失敗しました: ${fetchError?.message ?? ""}`);
+  }
+  const actor = await assertOwnerOrClientCompany(
+    { ownerUserId: original.owner_user_id, companyId: original.company_id },
+    "案件"
+  );
+
+  const { data: created, error } = await supabase
+    .from("deals")
+    .insert({
+      company_id: original.company_id,
+      title: `${original.title}のコピー`,
+      owner_user_id: original.owner_user_id,
+      deal_category: original.deal_category,
+      contact_name: original.contact_name,
+      contact_title: original.contact_title,
+      lead_source: original.lead_source,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    throw new Error(`案件の複製に失敗しました: ${error?.message ?? ""}`);
+  }
+
+  await recordAuditLog({
+    userId: userIdOfActor(actor),
+    action: "create",
+    targetType: "deal",
+    targetId: created.id,
+    detail: { source: "duplicate", fromDealId: dealId },
+  });
+
+  revalidatePath(`/companies/${original.company_id}/workspace/deals`);
+  revalidatePath(`/companies/${original.company_id}/workspace/dashboard`);
+  revalidatePath("/client/deals");
+  revalidatePath("/client/dashboard");
+
+  return { id: created.id };
+}
+
+/**
  * 案件管理表(ヨミ表統合)からの汎用更新。フォームに含まれるフィールドのみ更新する。
  * クライアントポータルからも呼ばれるため、meeting_feedbackは社内スタッフのみ反映する。
  */

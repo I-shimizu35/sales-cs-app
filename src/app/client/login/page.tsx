@@ -1,5 +1,5 @@
-import { Building2, Lock } from "lucide-react";
-import { verifyClientLogin } from "./actions";
+import { Building2 } from "lucide-react";
+import { ClientLoginForm } from "./client-login-form";
 import { ForgotPasswordLink } from "./forgot-password-link";
 
 export default function ClientLoginPage({
@@ -27,26 +27,7 @@ export default function ClientLoginPage({
             ログインURLが正しくありません。発行元にご確認ください。
           </p>
         ) : (
-          <form action={verifyClientLogin} className="card space-y-4 p-6">
-            <input type="hidden" name="slug" value={slug} />
-            <div>
-              <label className="field-label">パスワード</label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  autoFocus
-                  className="field pl-9"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-            <button type="submit" className="btn-brand w-full">
-              ログイン
-            </button>
-          </form>
+          <ClientLoginForm slug={slug} />
         )}
         {slug && <ForgotPasswordLink slug={slug} />}
       </div>

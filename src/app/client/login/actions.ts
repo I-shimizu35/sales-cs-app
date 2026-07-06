@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase";
 import {
   createClientSessionCookieValue,
@@ -12,27 +13,55 @@ import {
 import { sendNotificationEmail } from "@/lib/notifications";
 import { recordAuditLog } from "@/lib/audit";
 
-export async function verifyClientLogin(formData: FormData): Promise<void> {
+// 共有パスワード1つで運用するためブルートフォース耐性が低い。
+// slugごとに直近の失敗回数を数え、しきい値超過で一時的にログインを拒否する。
+const LOGIN_LOCKOUT_WINDOW_MINUTES = 15;
+const LOGIN_LOCKOUT_MAX_FAILURES = 8;
+
+async function isLoginLocked(supabase: SupabaseClient, slug: string): Promise<boolean> {
+  const since = new Date(Date.now() - LOGIN_LOCKOUT_WINDOW_MINUTES * 60_000).toISOString();
+  const { count } = await supabase
+    .from("client_login_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("slug", slug)
+    .eq("success", false)
+    .gte("created_at", since);
+  return (count ?? 0) >= LOGIN_LOCKOUT_MAX_FAILURES;
+}
+
+// 本番ビルドではServer Actionからthrowしたエラーのmessageが汎用文言に丸められて
+// クライアントに渡らないため、ユーザーが実際に踏みうるエラーはthrowではなく
+// 戻り値のerrorとして返す。
+export async function verifyClientLogin(formData: FormData): Promise<{ error: string } | void> {
   const slug = formData.get("slug");
   const password = formData.get("password");
   if (typeof slug !== "string" || !slug || typeof password !== "string" || !password) {
-    throw new Error("ログイン情報が不正です。発行されたURLからアクセスしてください。");
+    return { error: "ログイン情報が不正です。発行されたURLからアクセスしてください。" };
   }
 
   const supabase = createServerClient();
+
+  if (await isLoginLocked(supabase, slug)) {
+    return {
+      error: `ログイン試行が多すぎるため一時的に制限しています。${LOGIN_LOCKOUT_WINDOW_MINUTES}分ほど時間をおいて再度お試しください。`,
+    };
+  }
+
   const { data: company } = await supabase
     .from("companies")
     .select("id, client_password_hash, client_portal_enabled")
     .eq("client_login_slug", slug)
     .maybeSingle();
 
-  if (!company || !company.client_portal_enabled || !company.client_password_hash) {
-    throw new Error("ログインに失敗しました。URLまたはパスワードをご確認ください。");
-  }
+  const matches =
+    !!company && company.client_portal_enabled && !!company.client_password_hash
+      ? await bcrypt.compare(password, company.client_password_hash)
+      : false;
 
-  const matches = await bcrypt.compare(password, company.client_password_hash);
-  if (!matches) {
-    throw new Error("ログインに失敗しました。URLまたはパスワードをご確認ください。");
+  await supabase.from("client_login_attempts").insert({ slug, success: matches });
+
+  if (!company || !company.client_portal_enabled || !company.client_password_hash || !matches) {
+    return { error: "ログインに失敗しました。URLまたはパスワードをご確認ください。" };
   }
 
   const cookieValue = await createClientSessionCookieValue(company.id);

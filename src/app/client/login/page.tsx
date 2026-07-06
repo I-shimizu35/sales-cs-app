@@ -1,4 +1,5 @@
 import { Building2 } from "lucide-react";
+import Link from "next/link";
 import { ClientLoginForm } from "./client-login-form";
 import { ForgotPasswordLink } from "./forgot-password-link";
 
@@ -30,6 +31,15 @@ export default function ClientLoginPage({
           <ClientLoginForm slug={slug} />
         )}
         {slug && <ForgotPasswordLink slug={slug} />}
+        <p className="mt-6 text-center text-xs text-slate-400">
+          <Link href="/terms" className="underline hover:text-slate-600">
+            利用規約
+          </Link>
+          <span className="mx-2">/</span>
+          <Link href="/privacy-policy" className="underline hover:text-slate-600">
+            プライバシーポリシー
+          </Link>
+        </p>
       </div>
     </div>
   );

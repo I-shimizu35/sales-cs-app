@@ -75,7 +75,11 @@ test.describe("案件のカンバン表示", () => {
     await dbDelete(`companies?id=eq.${companyId}`);
   });
 
-  test("カンバン表示に切り替えてドラッグ&ドロップするとステージが更新される", async ({ page, context }) => {
+  test("カンバン表示に切り替えてドラッグ&ドロップするとステージが更新される", async ({ page, context, browserName }) => {
+    // WebKitはネイティブHTML5 Drag and DropをPlaywrightの自動化から
+    // 正しく発火できない既知の制約があり(実際のマウス操作によるSafariでの
+    // 挙動とは無関係)、このテストのみ対象外とする。
+    test.skip(browserName === "webkit", "WebKitは自動化からのネイティブDnD発火に対応していないため");
     await loginAsStaff(context, ADMIN_EMAIL);
     await page.goto(`/companies/${companyId}/workspace/deals`);
     await page.waitForLoadState("networkidle");

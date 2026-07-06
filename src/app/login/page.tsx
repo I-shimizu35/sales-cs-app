@@ -1,6 +1,7 @@
 "use client";
 
 import { Building2, Sparkles, ShieldCheck, BarChart3 } from "lucide-react";
+import Link from "next/link";
 import { createBrowserClient } from "@/lib/supabase";
 
 const FEATURES = [
@@ -104,6 +105,15 @@ export default function LoginPage() {
 
           <p className="mt-8 text-center text-xs text-slate-400">
             権限が付与されていない場合は、システム管理者へお問い合わせください。
+          </p>
+          <p className="mt-4 text-center text-xs text-slate-400">
+            <Link href="/terms" className="underline hover:text-slate-600">
+              利用規約
+            </Link>
+            <span className="mx-2">/</span>
+            <Link href="/privacy-policy" className="underline hover:text-slate-600">
+              プライバシーポリシー
+            </Link>
           </p>
         </div>
       </div>

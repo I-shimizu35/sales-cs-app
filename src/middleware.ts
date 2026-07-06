@@ -3,7 +3,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@/lib/supabase";
 import { verifyClientSessionCookieValue, CLIENT_SESSION_COOKIE_NAME } from "@/lib/client-session";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/access-denied"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/access-denied", "/terms", "/privacy-policy"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

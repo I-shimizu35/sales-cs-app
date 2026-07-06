@@ -18,6 +18,19 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      // WindowsのPlaywright WebKitビルドはナビゲーション周りのタイミングが
+      // 他の2エンジンより不安定(同じ操作が実行ごとに成功したり失敗したりする)。
+      // アプリ側の実際の不具合ではなく自動化ドライバ側の既知の傾向のため、
+      // webkitプロジェクトのみ再試行を1回許容する。
+      name: "webkit",
+      retries: 1,
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
   webServer: {
     command: "npm run dev",

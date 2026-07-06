@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Copy, Check, CalendarClock, CalendarRange, Send } from "lucide-react";
+import { Copy, Check, CalendarClock, CalendarRange, Send, Printer } from "lucide-react";
 import { WeeklyReport, MonthlyReport } from "@/lib/analytics-data";
 import { buildWeeklyReportText, buildMonthlyReportText, formatDateJp } from "@/lib/report-text";
 import { sendWeeklyReportEmail } from "@/app/companies/[id]/report-actions";
+
+function PrintButton() {
+  return (
+    <button type="button" onClick={() => window.print()} className="btn-secondary btn-sm" title="印刷・PDF出力">
+      <Printer className="h-3.5 w-3.5" />
+      印刷
+    </button>
+  );
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -65,27 +74,32 @@ export function ReportSummaryPanel({
   companyId,
   companyName,
   hasNotificationEmail,
+  hideSendButton,
 }: {
   weeklyReport: WeeklyReport;
   monthlyReport: MonthlyReport;
   companyId: string;
   companyName: string;
   hasNotificationEmail: boolean;
+  hideSendButton?: boolean;
 }) {
   const weeklyText = buildWeeklyReportText(weeklyReport, companyName);
   const monthlyText = buildMonthlyReportText(monthlyReport, companyName);
 
   return (
-    <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="mb-6">
+      <p className="mb-3 hidden text-sm font-semibold text-slate-900 print:block">{companyName}</p>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 print:grid-cols-1">
       <div className="card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
             <CalendarClock className="h-4 w-4 text-brand-600" />
             週次レポート(金曜報告用)
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print:hidden">
             <CopyButton text={weeklyText} />
-            <SendButton companyId={companyId} disabled={!hasNotificationEmail} />
+            {!hideSendButton && <SendButton companyId={companyId} disabled={!hasNotificationEmail} />}
+            <PrintButton />
           </div>
         </div>
         <p className="mb-3 text-xs text-slate-400">
@@ -119,7 +133,10 @@ export function ReportSummaryPanel({
             <CalendarRange className="h-4 w-4 text-brand-600" />
             月次定例MTGレポート
           </h3>
-          <CopyButton text={monthlyText} />
+          <div className="flex items-center gap-2 print:hidden">
+            <CopyButton text={monthlyText} />
+            <PrintButton />
+          </div>
         </div>
         <p className="mb-3 text-xs text-slate-400">{monthlyReport.month}</p>
         <dl className="space-y-1.5 text-sm">
@@ -151,6 +168,7 @@ export function ReportSummaryPanel({
             </ul>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

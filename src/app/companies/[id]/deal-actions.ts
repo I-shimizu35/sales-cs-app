@@ -8,6 +8,7 @@ import { recordAuditLog } from "@/lib/audit";
 import { assertOwnerOrClientCompany, CurrentActor } from "@/lib/auth";
 import { DealStage } from "@/lib/types";
 import { DEAL_CSV_COLUMNS } from "@/lib/deal-csv-columns";
+import { createClientNotification } from "@/lib/client-notifications";
 
 const DEAL_STAGES: DealStage[] = [
   "first_contact",
@@ -476,7 +477,7 @@ export async function updateDealFields(
 
   const { data: existing, error: fetchError } = await supabase
     .from("deals")
-    .select("owner_user_id, company_id, stage, title")
+    .select("owner_user_id, company_id, stage, title, meeting_feedback")
     .eq("id", dealId)
     .single();
   if (fetchError || !existing) {
@@ -539,6 +540,19 @@ export async function updateDealFields(
     detail: { fields: Object.keys(update) },
   });
 
+  if (
+    "meeting_feedback" in update &&
+    update.meeting_feedback &&
+    update.meeting_feedback !== existing.meeting_feedback
+  ) {
+    await createClientNotification(supabase, {
+      companyId: existing.company_id,
+      dealId,
+      type: "meeting_feedback_updated",
+      message: `「${existing.title}」の商談FBが更新されました。`,
+    });
+  }
+
   let leadCreated = false;
   if (newStage) {
     leadCreated = await maybeAutoCreateLeadFromLostDeal(supabase, {
@@ -557,6 +571,7 @@ export async function updateDealFields(
   revalidatePath("/client/deals");
   revalidatePath("/client/dashboard");
   revalidatePath("/client/analytics");
+  revalidatePath("/client", "layout");
   revalidatePath(`/companies/${existing.company_id}`);
   revalidatePath("/");
 

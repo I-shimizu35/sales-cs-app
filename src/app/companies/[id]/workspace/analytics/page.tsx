@@ -34,10 +34,12 @@ export default async function WorkspaceAnalyticsPage({
 
   return (
     <div>
-      <Suspense>
-        <MonthFilter availableMonths={availableMonths} />
-      </Suspense>
-      <YomiSummaryCards summary={yomiSummary} />
+      <div className="print:hidden">
+        <Suspense>
+          <MonthFilter availableMonths={availableMonths} />
+        </Suspense>
+        <YomiSummaryCards summary={yomiSummary} />
+      </div>
       <ReportSummaryPanel
         weeklyReport={weeklyReport}
         monthlyReport={monthlyReport}
@@ -45,13 +47,15 @@ export default async function WorkspaceAnalyticsPage({
         companyName={companyInfo.name}
         hasNotificationEmail={companyInfo.hasNotificationEmail}
       />
-      <div className="mb-6">
+      <div className="mb-6 print:hidden">
         <MonthlyTrendChart data={monthlyTrend} />
       </div>
-      <div className="mb-6">
+      <div className="mb-6 print:hidden">
         <StageBreakdownChart data={stageBreakdown} />
       </div>
-      <LostReasonBreakdown data={lostReasonBreakdown} />
+      <div className="print:hidden">
+        <LostReasonBreakdown data={lostReasonBreakdown} />
+      </div>
     </div>
   );
 }

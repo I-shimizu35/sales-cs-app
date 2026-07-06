@@ -15,7 +15,9 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-8 py-10">
-      <WorkspaceNav companyId={params.id} companyName={company.name} />
+      <div className="print:hidden">
+        <WorkspaceNav companyId={params.id} companyName={company.name} />
+      </div>
       {children}
     </div>
   );

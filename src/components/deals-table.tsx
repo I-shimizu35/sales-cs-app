@@ -185,11 +185,11 @@ function UrlInput({
 }) {
   const [value, setValue] = useState(defaultValue ?? "");
   const [isUploading, startUploadTransition] = useTransition();
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !dealId) return;
+  function uploadFile(file: File) {
+    if (!dealId) return;
     const formData = new FormData();
     formData.set("file", file);
     startUploadTransition(async () => {
@@ -200,11 +200,38 @@ function UrlInput({
         setValue(result.url);
       }
     });
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
     e.target.value = "";
   }
 
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (!allowUpload || !dealId) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadFile(file);
+  }
+
   return (
-    <div className="flex items-center gap-1">
+    <div
+      className={`flex items-center gap-1 rounded ${
+        isDragOver ? "outline-dashed outline-2 outline-offset-2 outline-brand-400" : ""
+      }`}
+      onDragOver={
+        allowUpload && dealId
+          ? (e) => {
+              e.preventDefault();
+              setIsDragOver(true);
+            }
+          : undefined
+      }
+      onDragLeave={allowUpload && dealId ? () => setIsDragOver(false) : undefined}
+      onDrop={allowUpload && dealId ? handleDrop : undefined}
+    >
       <input
         type="text"
         form={formId}
@@ -226,7 +253,7 @@ function UrlInput({
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
-            title="ファイルをアップロード"
+            title="ファイルをアップロード(ドラッグ&ドロップも可)"
           >
             <Paperclip className="h-3.5 w-3.5" />
           </button>

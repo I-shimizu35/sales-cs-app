@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { sendNotificationEmail } from "@/lib/notifications";
 import { recordError } from "@/lib/error-log";
+import { createClientNotification } from "@/lib/client-notifications";
 
 /**
  * Vercel Cronから毎日呼ばれ、期日超過(due_date < 今日 かつ status != done)の
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from("action_items")
-    .select("id, title, due_date, assignee_id, deals(title, companies(name))")
+    .select("id, title, due_date, assignee_id, deals(company_id, title, companies(name))")
     .neq("status", "done")
     .lt("due_date", today);
 
@@ -35,8 +36,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     title: string;
     due_date: string;
     assignee_id: string | null;
-    deals: { title: string; companies: { name: string } | null } | null;
+    deals: { company_id: string; title: string; companies: { name: string } | null } | null;
   }>;
+
+  // クライアントポータル向けの通知は担当者の有無に関わらず、
+  // 企業ごとに1件のダイジェスト通知としてまとめて記録する
+  const byCompany = new Map<string, typeof items>();
+  for (const item of items) {
+    const companyId = item.deals?.company_id;
+    if (!companyId) continue;
+    const list = byCompany.get(companyId) ?? [];
+    list.push(item);
+    byCompany.set(companyId, list);
+  }
+  for (const [companyId, list] of byCompany) {
+    await createClientNotification(supabase, {
+      companyId,
+      type: "action_item_overdue",
+      message: `期日超過の次回アクションが${list.length}件あります。`,
+    });
+  }
 
   const byAssignee = new Map<string, typeof items>();
   for (const item of items) {
@@ -47,7 +66,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   if (byAssignee.size === 0) {
-    return NextResponse.json({ sent: 0 });
+    return NextResponse.json({ sent: 0, clientNotified: byCompany.size });
   }
 
   const { data: assignees, error: usersError } = await supabase
@@ -93,5 +112,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ sent, failed, skipped });
+  return NextResponse.json({ sent, failed, skipped, clientNotified: byCompany.size });
 }

@@ -17,6 +17,8 @@ import {
   Search,
 } from "lucide-react";
 import { logoutClient } from "@/app/client/login/actions";
+import { ClientNotificationsBell } from "@/components/client-notifications-bell";
+import { ClientNotification } from "@/lib/client-notifications";
 
 const NAV_ITEMS = [
   { href: "/client/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
@@ -27,7 +29,7 @@ const NAV_ITEMS = [
 
 const COLLAPSE_STORAGE_KEY = "client-sidebar-collapsed";
 
-export function ClientPortalNav() {
+export function ClientPortalNav({ notifications }: { notifications: ClientNotification[] }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,15 +58,22 @@ export function ClientPortalNav() {
     const isCollapsed = collapsed && !forceExpanded;
     return (
       <>
-        <div className={`flex items-center gap-2 px-5 py-5 ${isCollapsed ? "justify-center px-0" : ""}`}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white">
-            <Building className="h-4 w-4" />
+        <div
+          className={`flex items-center gap-2 px-5 py-5 ${
+            isCollapsed ? "flex-col justify-center px-0" : "justify-between"
+          }`}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white">
+              <Building className="h-4 w-4" />
+            </div>
+            {!isCollapsed && (
+              <span className="truncate text-sm font-semibold tracking-tight text-slate-900">
+                クライアントポータル
+              </span>
+            )}
           </div>
-          {!isCollapsed && (
-            <span className="truncate text-sm font-semibold tracking-tight text-slate-900">
-              クライアントポータル
-            </span>
-          )}
+          <ClientNotificationsBell notifications={notifications} />
         </div>
 
         {!isCollapsed && (
@@ -142,13 +151,16 @@ export function ClientPortalNav() {
           </div>
           <span className="text-sm font-semibold tracking-tight text-slate-900">クライアントポータル</span>
         </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-50"
-          title="メニューを開く"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <ClientNotificationsBell notifications={notifications} />
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-50"
+            title="メニューを開く"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* モバイル用ドロワー */}

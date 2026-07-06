@@ -8,6 +8,7 @@ import { updateDealFields, deleteDeal, duplicateDeal, uploadDealAttachment } fro
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
 import { DealsKanbanBoard } from "./deals-kanban-board";
+import { DealsMobileList } from "./deals-mobile-list";
 
 export interface DealsTableRow {
   id: string;
@@ -421,7 +422,7 @@ export function DealsTable({
         </select>
         <span className="text-xs text-slate-400">{filteredRows.length}件 / 全{rows.length}件</span>
         <div className="ml-auto flex items-center gap-2">
-          <div className="flex overflow-hidden rounded-lg border border-slate-200">
+          <div className="hidden overflow-hidden rounded-lg border border-slate-200 md:flex">
             <button
               type="button"
               onClick={() => handleViewModeChange("table")}
@@ -447,10 +448,15 @@ export function DealsTable({
             <Download className="h-3.5 w-3.5" />
             CSVダウンロード
           </button>
-          <ColumnVisibilityMenu hidden={hidden} onToggle={toggleColumn} />
+          <div className="hidden md:block">
+            <ColumnVisibilityMenu hidden={hidden} onToggle={toggleColumn} />
+          </div>
         </div>
       </div>
 
+      <DealsMobileList rows={filteredRows} showCompanyColumn={showCompanyColumn} />
+
+      <div className="hidden md:block">
       {viewMode === "kanban" ? (
         <DealsKanbanBoard rows={filteredRows} showCompanyColumn={showCompanyColumn} />
       ) : (
@@ -710,6 +716,7 @@ export function DealsTable({
         </table>
       </div>
       )}
+      </div>
     </div>
   );
 }

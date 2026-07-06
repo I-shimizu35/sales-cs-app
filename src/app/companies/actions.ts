@@ -297,3 +297,40 @@ export async function removeSupporter(supporterId: string, companyId: string): P
   revalidatePath(`/companies/${companyId}`);
   revalidatePath("/");
 }
+
+/**
+ * 企業・案件・リード・次回アクションをまとめてJSONとしてエクスポートする。
+ * バックアップ・他システムへの移行等を想定し、CSV(案件のみ)より網羅的な出力を提供する。
+ * 復元(インポート)機能は未実装(データ整合性の検証コストが高いため別途要検討)。
+ */
+export async function exportCompanyDataJson(companyId: string): Promise<Record<string, unknown>> {
+  const supabase = createServerClient();
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("*")
+    .eq("id", companyId)
+    .single();
+  if (companyError || !company) {
+    throw new Error(`企業情報の取得に失敗しました: ${companyError?.message ?? ""}`);
+  }
+  await assertOwnerOrManager(company.owner_user_id, "企業");
+
+  const [{ data: deals }, { data: leads }] = await Promise.all([
+    supabase.from("deals").select("*").eq("company_id", companyId),
+    supabase.from("leads").select("*").eq("company_id", companyId),
+  ]);
+
+  const dealIds = (deals ?? []).map((d) => d.id);
+  const { data: actionItems } =
+    dealIds.length > 0
+      ? await supabase.from("action_items").select("*").in("deal_id", dealIds)
+      : { data: [] };
+
+  return {
+    exportedAt: new Date().toISOString(),
+    company: { ...company, client_password_hash: undefined },
+    deals: deals ?? [],
+    leads: leads ?? [],
+    actionItems: actionItems ?? [],
+  };
+}

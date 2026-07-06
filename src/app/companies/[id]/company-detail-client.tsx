@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, ArrowLeft, Loader2, Sparkles, AlertCircle, CheckCircle2, Rocket, X } from "lucide-react";
+import { Building2, ArrowLeft, Loader2, Sparkles, AlertCircle, CheckCircle2, Rocket, X, Download } from "lucide-react";
 import { Company, GeneratedReport, ReportType, AppUser, CompanyNote } from "@/lib/types";
 import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ClientPortalPanel } from "@/components/client-portal-panel";
 import { SupportTeamPanel } from "@/components/support-team-panel";
 import { CompanyNotesPanel } from "@/components/company-notes-panel";
-import { updateCompany } from "../actions";
+import { updateCompany, exportCompanyDataJson } from "../actions";
 
 type TabType = "basic" | "prep";
 
@@ -59,6 +59,25 @@ export function CompanyDetailClient({
   const [showNewBanner, setShowNewBanner] = useState(!!isNewlyCreated);
   const [loadingType, setLoadingType] = useState<ReportType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function handleExportJson() {
+    setIsExporting(true);
+    try {
+      const data = await exportCompanyDataJson(company.id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${company.name}_export_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   function dismissNewBanner() {
     setShowNewBanner(false);
@@ -405,6 +424,24 @@ export function CompanyDetailClient({
         {activeTab === "basic" && isManagerOrAdmin && (
           <div className="mt-8">
             <ClientPortalPanel companyId={company.id} portalEnabled={company.client_portal_enabled} />
+          </div>
+        )}
+
+        {activeTab === "basic" && canEditCompany && (
+          <div className="mt-8 card p-5">
+            <h3 className="mb-2 text-sm font-semibold text-slate-900">データエクスポート</h3>
+            <p className="mb-3 text-xs text-slate-500">
+              この企業の企業情報・案件・リード・次回アクションを1つのJSONファイルとしてダウンロードします。バックアップや他システムへの移行にご利用ください(復元機能はありません)。
+            </p>
+            <button
+              type="button"
+              onClick={handleExportJson}
+              disabled={isExporting}
+              className="btn-secondary btn-sm disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              全データをJSONでエクスポート
+            </button>
           </div>
         )}
 

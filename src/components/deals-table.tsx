@@ -295,8 +295,14 @@ function SaveButton({ formId, onLeadCreated }: { formId: string; onLeadCreated: 
       className="btn-secondary btn-sm shrink-0 disabled:opacity-50"
       title="この行の変更を保存"
     >
-      {saved ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
-      更新
+      {isPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : saved ? (
+        <Check className="h-3.5 w-3.5 text-emerald-600" />
+      ) : (
+        <Save className="h-3.5 w-3.5" />
+      )}
+      {isPending ? "更新中..." : "更新"}
     </button>
   );
 }

@@ -1,5 +1,4 @@
 import {
-  DealStatus,
   DealStage,
   ScoreStatus,
   ActionItemStatus,
@@ -49,20 +48,31 @@ export const SUPPORT_PHASE_BADGE_CLASS: Record<SupportPhase, string> = {
   operating: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-export const DEAL_STATUS_LABEL: Record<DealStatus, string> = {
-  prospect: "見込",
-  in_progress: "商談中",
-  won: "受注",
-  lost: "失注",
-  dormant: "休眠",
+export type SupportState = "preparing" | "operating" | "stopped";
+
+/**
+ * support_status(支援中/支援終了)とsupport_phase(7段階)から、
+ * 「稼働中/準備中/支援終了」という一目で分かる支援状況を導出する。
+ * このアプリで扱う企業は基本的に契約済みのクライアントであり、
+ * 「見込み/失注」のような営業獲得目線のステータスは実態と合わないため、
+ * 支援の稼働状況のみを表す3値に統一している。
+ */
+export function getSupportState(supportStatus: SupportStatus, supportPhase: SupportPhase): SupportState {
+  if (supportStatus === "inactive") return "stopped";
+  if (supportPhase === "operating") return "operating";
+  return "preparing";
+}
+
+export const SUPPORT_STATE_LABEL: Record<SupportState, string> = {
+  preparing: "準備中",
+  operating: "稼働中",
+  stopped: "支援終了",
 };
 
-export const DEAL_STATUS_BADGE_CLASS: Record<DealStatus, string> = {
-  prospect: "bg-slate-100 text-slate-700 border-slate-200",
-  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
-  won: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  lost: "bg-red-50 text-red-700 border-red-200",
-  dormant: "bg-slate-50 text-slate-400 border-slate-100",
+export const SUPPORT_STATE_BADGE_CLASS: Record<SupportState, string> = {
+  preparing: "bg-amber-50 text-amber-700 border-amber-200",
+  operating: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  stopped: "bg-slate-50 text-slate-400 border-slate-100",
 };
 
 export const DEAL_STAGE_LABEL: Record<DealStage, string> = {

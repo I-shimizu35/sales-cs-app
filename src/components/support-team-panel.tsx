@@ -65,7 +65,7 @@ export function SupportTeamPanel({
       </div>
 
       <div>
-        <label className="field-label">支援担当者</label>
+        <label className="field-label">支援チーム(社内)</label>
         <div className="mb-3 flex flex-wrap gap-2">
           {supporters.length === 0 && <p className="text-xs text-slate-400">まだ誰もアサインされていません。</p>}
           {supporters.map((s) => {

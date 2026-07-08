@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, ArrowLeft, Loader2, Sparkles, AlertCircle, CheckCircle2, Rocket, X, Download } from "lucide-react";
 import { Company, GeneratedReport, ReportType, AppUser, CompanyNote } from "@/lib/types";
-import { DEAL_STATUS_LABEL, DEAL_STATUS_BADGE_CLASS } from "@/lib/status";
+import { getSupportState, SUPPORT_STATE_LABEL, SUPPORT_STATE_BADGE_CLASS } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
 import { EmptyState } from "@/components/empty-state";
 import { ClientPortalPanel } from "@/components/client-portal-panel";
@@ -193,12 +193,15 @@ export function CompanyDetailClient({
           <div>
             <div className="mb-1 flex items-center gap-3">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{company.name}</h1>
-              <span className={`badge ${DEAL_STATUS_BADGE_CLASS[company.deal_status]}`}>
-                {DEAL_STATUS_LABEL[company.deal_status]}
-              </span>
+              {(() => {
+                const state = getSupportState(company.support_status, company.support_phase);
+                return (
+                  <span className={`badge ${SUPPORT_STATE_BADGE_CLASS[state]}`}>{SUPPORT_STATE_LABEL[state]}</span>
+                );
+              })()}
             </div>
             <p className="text-sm text-slate-500">
-              業種: {company.industry ?? "未設定"} • 担当者:{" "}
+              業種: {company.industry ?? "未設定"} • 主担当(社内):{" "}
               {users.find((u) => u.id === company.owner_user_id)?.name ?? "未設定"} • 最終更新:{" "}
               {new Date(company.updated_at).toLocaleDateString("ja-JP")}
             </p>
@@ -249,7 +252,7 @@ export function CompanyDetailClient({
                   <input name="name" defaultValue={company.name} required disabled={!canEditCompany} className="field" />
                 </div>
                 <div>
-                  <label className="field-label">担当者</label>
+                  <label className="field-label">主担当(社内)</label>
                   {users.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-slate-200 p-2 text-xs text-slate-400">
                       <Link href="/admin/users" className="text-brand-600 underline">

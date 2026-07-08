@@ -53,7 +53,7 @@ export interface DealsTableRow {
 /** チェックボックスで表示/非表示を切り替えられる列。案件名・ステータス・商談FBは常時表示。 */
 const OPTIONAL_COLUMNS: { key: string; label: string }[] = [
   { key: "deal_category", label: "案件区分" },
-  { key: "contact_name", label: "担当者名" },
+  { key: "contact_name", label: "クライアント担当者" },
   { key: "contact_title", label: "役職" },
   { key: "lead_source", label: "流入経路" },
   { key: "amount", label: "見積もり金額" },
@@ -485,7 +485,7 @@ export function DealsTable({
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="案件名・担当者名・課題で検索"
+            placeholder="案件名・クライアント担当者・課題で検索"
             className="field-sm w-64 pl-8"
           />
         </div>
@@ -547,7 +547,7 @@ export function DealsTable({
               {!hidden.has("deal_category") && <th className="px-2 py-2 font-medium">案件区分</th>}
               {showCompanyColumn && <th className="px-2 py-2 font-medium">企業名</th>}
               {showCompanyColumn && <th className="px-2 py-2 font-medium">業種</th>}
-              {!hidden.has("contact_name") && <th className="px-2 py-2 font-medium">担当者名</th>}
+              {!hidden.has("contact_name") && <th className="px-2 py-2 font-medium">クライアント担当者</th>}
               {!hidden.has("contact_title") && <th className="px-2 py-2 font-medium">役職</th>}
               {!hidden.has("lead_source") && <th className="px-2 py-2 font-medium">流入経路</th>}
               <th className="px-2 py-2 font-medium">案件ステータス</th>

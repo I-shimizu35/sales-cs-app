@@ -46,7 +46,7 @@ export default async function NewCompanyPage() {
           <input name="name" required className="field" />
         </div>
         <div>
-          <label className="field-label">担当者</label>
+          <label className="field-label">主担当(社内)</label>
           {!canChooseOwner ? (
             <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
               あなた自身が担当者として登録されます。

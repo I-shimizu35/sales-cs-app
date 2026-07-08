@@ -8,7 +8,7 @@ export const DEAL_CSV_COLUMNS: { key: string; label: string }[] = [
   { key: "title", label: "案件名" },
   { key: "stage", label: "案件ステータス" },
   { key: "deal_category", label: "案件区分" },
-  { key: "contact_name", label: "担当者名" },
+  { key: "contact_name", label: "クライアント担当者" },
   { key: "contact_title", label: "役職" },
   { key: "lead_source", label: "流入経路" },
   { key: "amount", label: "見積もり金額" },

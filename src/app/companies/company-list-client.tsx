@@ -6,12 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight, X } from "lucide-react";
 import { Company, SupportPhase } from "@/lib/types";
 import {
-  DEAL_STATUS_LABEL,
-  DEAL_STATUS_BADGE_CLASS,
-  SUPPORT_STATUS_LABEL,
-  SUPPORT_STATUS_BADGE_CLASS,
   SUPPORT_PHASE_LABEL,
   SUPPORT_PHASE_BADGE_CLASS,
+  SUPPORT_STATE_LABEL,
+  SUPPORT_STATE_BADGE_CLASS,
+  getSupportState,
+  SupportState,
 } from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -20,12 +20,9 @@ export interface CompanyWithOwner extends Company {
   owner: { name: string } | null;
 }
 
-function StatusBadge({ status }: { status: Company["deal_status"] }) {
-  return <span className={`badge ${DEAL_STATUS_BADGE_CLASS[status]}`}>{DEAL_STATUS_LABEL[status]}</span>;
-}
-
-function SupportStatusBadge({ status }: { status: Company["support_status"] }) {
-  return <span className={`badge ${SUPPORT_STATUS_BADGE_CLASS[status]}`}>{SUPPORT_STATUS_LABEL[status]}</span>;
+function SupportStateBadge({ status, phase }: { status: Company["support_status"]; phase: Company["support_phase"] }) {
+  const state = getSupportState(status, phase);
+  return <span className={`badge ${SUPPORT_STATE_BADGE_CLASS[state]}`}>{SUPPORT_STATE_LABEL[state]}</span>;
 }
 
 function SupportPhaseBadge({ phase }: { phase: Company["support_phase"] }) {
@@ -47,7 +44,7 @@ export function CompanyListClient({
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [industryFilter, setIndustryFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [stateFilter, setStateFilter] = useState<SupportState | "">("");
 
   // ダッシュボードのKPIカードからのドリルダウン用: URLクエリパラメータをそのまま絞り込み条件として使う
   const supportStatusParam = searchParams.get("supportStatus");
@@ -65,7 +62,7 @@ export function CompanyListClient({
     return companies.filter((c) => {
       if (searchTerm && !c.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (industryFilter && c.industry !== industryFilter) return false;
-      if (statusFilter && c.deal_status !== statusFilter) return false;
+      if (stateFilter && getSupportState(c.support_status, c.support_phase) !== stateFilter) return false;
       if (supportStatusParam && c.support_status !== supportStatusParam) return false;
       if (phaseParam && c.support_phase !== phaseParam) return false;
       if (ownerParam && c.owner_user_id !== ownerParam) return false;
@@ -76,7 +73,7 @@ export function CompanyListClient({
     companies,
     searchTerm,
     industryFilter,
-    statusFilter,
+    stateFilter,
     supportStatusParam,
     phaseParam,
     ownerParam,
@@ -137,12 +134,12 @@ export function CompanyListClient({
             ))}
           </select>
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value as SupportState | "")}
             className="field w-auto"
           >
-            <option value="">ステータス: すべて</option>
-            {Object.entries(DEAL_STATUS_LABEL).map(([value, label]) => (
+            <option value="">支援状況: すべて</option>
+            {Object.entries(SUPPORT_STATE_LABEL).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -174,11 +171,10 @@ export function CompanyListClient({
                 <tr>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">会社名</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">業種</th>
-                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">ステータス</th>
                   <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援フェーズ</th>
-                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援ステータス</th>
-                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援担当者</th>
-                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">担当者</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援状況</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援チーム(社内)</th>
+                  <th className="whitespace-nowrap px-6 py-3.5 font-medium">主担当(社内)</th>
                   <th className="whitespace-nowrap px-6 py-3.5 text-right font-medium"></th>
                 </tr>
               </thead>
@@ -201,13 +197,10 @@ export function CompanyListClient({
                     </td>
                     <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{company.industry ?? "-"}</td>
                     <td className="whitespace-nowrap px-6 py-3.5">
-                      <StatusBadge status={company.deal_status} />
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-3.5">
                       <SupportPhaseBadge phase={company.support_phase} />
                     </td>
                     <td className="whitespace-nowrap px-6 py-3.5">
-                      <SupportStatusBadge status={company.support_status} />
+                      <SupportStateBadge status={company.support_status} phase={company.support_phase} />
                     </td>
                     <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">
                       {(supporterNamesByCompany[company.id] ?? []).join("、") || (

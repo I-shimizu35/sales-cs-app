@@ -2,11 +2,12 @@ import Link from "next/link";
 import { Building2, Users, ArrowRight, CalendarClock, FileClock, ListChecks } from "lucide-react";
 import { createServerClient } from "@/lib/supabase";
 import {
-  SUPPORT_STATUS_LABEL,
-  SUPPORT_STATUS_BADGE_CLASS,
   SUPPORT_PHASE_LABEL,
   SUPPORT_PHASE_BADGE_CLASS,
   SUPPORT_PHASE_ORDER,
+  SUPPORT_STATE_LABEL,
+  SUPPORT_STATE_BADGE_CLASS,
+  getSupportState,
 } from "@/lib/status";
 import { SupportPhase } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
@@ -215,13 +216,13 @@ export default async function DashboardPage() {
         <div className="mb-8">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
             <Users className="h-4 w-4 text-brand-600" />
-            担当者別の支援中クライアント数
+            支援チーム(社内)別の支援中クライアント数
           </h2>
           <div className="card overflow-x-auto">
             <table className="w-full min-w-[420px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
                 <tr>
-                  <th className="whitespace-nowrap px-6 py-3 font-medium">担当者</th>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium">支援担当者(社内)</th>
                   <th className="whitespace-nowrap px-6 py-3 font-medium">支援中</th>
                   <th className="whitespace-nowrap px-6 py-3 font-medium">担当合計</th>
                 </tr>
@@ -297,8 +298,8 @@ export default async function DashboardPage() {
               <tr>
                 <th className="whitespace-nowrap px-6 py-3.5 font-medium">クライアント名</th>
                 <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援フェーズ</th>
-                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援ステータス</th>
-                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援担当者</th>
+                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援状況</th>
+                <th className="whitespace-nowrap px-6 py-3.5 font-medium">支援チーム(社内)</th>
                 <th className="whitespace-nowrap px-6 py-3.5 text-right font-medium"></th>
               </tr>
             </thead>
@@ -316,9 +317,12 @@ export default async function DashboardPage() {
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-3.5">
-                    <span className={`badge ${SUPPORT_STATUS_BADGE_CLASS[c.support_status]}`}>
-                      {SUPPORT_STATUS_LABEL[c.support_status]}
-                    </span>
+                    {(() => {
+                      const state = getSupportState(c.support_status, c.support_phase);
+                      return (
+                        <span className={`badge ${SUPPORT_STATE_BADGE_CLASS[state]}`}>{SUPPORT_STATE_LABEL[state]}</span>
+                      );
+                    })()}
                   </td>
                   <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">
                     {c.supporterNames.length > 0 ? c.supporterNames.join("、") : <span className="text-slate-400">未設定</span>}

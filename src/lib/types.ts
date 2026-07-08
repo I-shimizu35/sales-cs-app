@@ -17,8 +17,6 @@ export interface AppUser {
   notify_frequency: NotifyFrequency;
 }
 
-export type DealStatus = "prospect" | "in_progress" | "won" | "lost" | "dormant";
-
 export type SupportStatus = "active" | "inactive";
 
 export type SupportPhase =
@@ -43,7 +41,6 @@ export interface Company {
   support_purpose: string | null;
   current_issues: string | null;
   goals: string | null;
-  deal_status: DealStatus;
   support_status: SupportStatus;
   support_phase: SupportPhase;
   owner_user_id: string | null;

@@ -97,6 +97,9 @@ SU2.0の支援フローは「初期設計→資料収集→案件管理表構築
 | FR-5-4 | AIプロンプトのテンプレートは管理画面から編集できる。 |
 | FR-5-5 | 開発環境ではAI呼び出しをモック応答に切り替えられる。 |
 | FR-5-6 | 生成対象・生成種別の権限チェックは、対象(企業/案件/商談)のowner_user_idに基づき行う。 |
+| FR-5-7 | 企業詳細の「商談準備(AI)」タブに、チャット形式のAI「商談戦略設計」を提供する。①企業情報ヒアリング(会社名・URL・設立年・従業員数・事業内容・顧客層・現状課題・料金プラン)②商談戦略ヒアリング(参考資料アップロード+差別化要因・訴求軸のヒアリング)③個社相関(ABM、商談相手企業ごとの見せ方提案)の3ステップで構成する。 |
+| FR-5-8 | 商談戦略ヒアリングの完了後、購買心理7原則(関心・興味・連想・欲望・比較・信念・決意)それぞれについて0〜100のスコアを算出し、横棒グラフで可視化する。 |
+| FR-5-9 | 各ヒアリングステップは、AIが完了と判断していなくてもユーザーが任意のタイミングで次のステップへ手動で進めることができる。 |
 
 > 備考: `ReportType`には業界分析・商流分析・収益構造分析・想定課題・Q&Aリスト・ヨミ表反映・案件管理表反映の7種類が定義されているが、現時点でプロンプト・生成UIとも未実装(将来拡張枠)。
 
@@ -202,7 +205,7 @@ SU2.0の支援フローは「初期設計→資料収集→案件管理表構築
 | エンティティ | 主なフィールド | 備考 |
 |---|---|---|
 | `users` | name, email, role, status, auth_user_id | ロールはtext+CHECK制約(enum不使用) |
-| `companies` | name, industry, contract_start/end, support_status, support_phase, owner_user_id, client_login_slug, client_password_hash, client_portal_enabled, notification_email, default_deal_category, default_lead_source | |
+| `companies` | name, industry, contract_start/end, support_status, support_phase, owner_user_id, client_login_slug, client_password_hash, client_portal_enabled, notification_email, default_deal_category, default_lead_source, founded_year, employee_count, target_customer_profile, pricing_plan, key_differentiators, appeal_axis, strategy_reference_doc_url, principle_scores(jsonb) | 末尾8列は2026年7月追加(商談戦略設計AI用) |
 | `company_supporters` | company_id, user_id | 複数担当者アサイン用の中間テーブル |
 | `company_notes` | company_id, 本文 | 社内限定 |
 | `deals` | title, stage, amount, owner_user_id, BANT系4項目, temperature_score, win_probability, score_status, ヨミ表項目群, 添付URL群, meeting_feedback, roleplay_conducted_at | |

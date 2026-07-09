@@ -132,4 +132,29 @@ export const MOCK_RESPONSES: Partial<Record<ReportType, Record<string, unknown>>
     concerns_update: "[モック] 導入コストへの懸念",
     follow_up_policy_update: "[モック] 見積書提示後、決裁者同席の場を再設定する",
   },
+  strategy_intake_turn: {
+    reply: "[モック] ありがとうございます。次に、貴社の従業員数を教えていただけますか?",
+    extracted: { business_summary: "[モック] ITを活用した業務支援サービスを提供" },
+    is_complete: false,
+  },
+  strategy_positioning_turn: {
+    reply:
+      "[モック] 承知しました。貴社の商談では「コスト削減」と「運用改善」のどちらの訴求がより響きやすいと感じますか?",
+    extracted: { key_differentiators: "[モック] 導入から3ヶ月で運用が定着する伴走支援体制" },
+    is_complete: false,
+  },
+  strategy_principle_scoring: {
+    principle_scores: { 関心: 70, 興味: 65, 連想: 55, 欲望: 60, 比較: 50, 信念: 68, 決意: 58 },
+    summary:
+      "[モック] 「信念」と「関心」の訴求が比較的強く機能する一方、「比較」軸(他社との違いの明確化)がやや弱い傾向にあります。",
+  },
+  strategy_abm_recommendation: {
+    recommended_angle: "[モック] コスト削減よりも「運用の定着」を重視するメッセージが響きやすいと推測されます。",
+    key_messages: [
+      "[モック] 導入後の伴走支援による定着率の高さ",
+      "[モック] 他社導入事例における効果実感までの期間の短さ",
+    ],
+    principles_to_emphasize: ["[モック] 信念(導入後も安心して運用できるという確信の醸成)"],
+    cautions: ["[モック] 価格の話を早期に持ち出すと「比較」に意識が向きやすいため後半に回す"],
+  },
 };

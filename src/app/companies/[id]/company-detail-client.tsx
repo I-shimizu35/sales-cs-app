@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, ArrowLeft, Loader2, Sparkles, AlertCircle, CheckCircle2, Rocket, X, Download } from "lucide-react";
+import {
+  Building2,
+  ArrowLeft,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  Rocket,
+  X,
+  Download,
+  Paperclip,
+  Target,
+} from "lucide-react";
 import { Company, GeneratedReport, ReportType, AppUser, CompanyNote } from "@/lib/types";
 import { getSupportState, SUPPORT_STATE_LABEL, SUPPORT_STATE_BADGE_CLASS } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
@@ -11,7 +23,16 @@ import { EmptyState } from "@/components/empty-state";
 import { ClientPortalPanel } from "@/components/client-portal-panel";
 import { SupportTeamPanel } from "@/components/support-team-panel";
 import { CompanyNotesPanel } from "@/components/company-notes-panel";
+import { StrategyChatPanel } from "@/components/strategy-chat-panel";
+import { StrategyExtractionPanel } from "@/components/strategy-extraction-panel";
+import { StrategyPrincipleChart } from "@/components/strategy-principle-chart";
 import { updateCompany, exportCompanyDataJson } from "../actions";
+import {
+  uploadStrategyReferenceDoc,
+  generatePrincipleScores,
+  generateAbmRecommendation,
+  AbmRecommendation,
+} from "./strategy-actions";
 
 type TabType = "basic" | "prep";
 
@@ -60,6 +81,65 @@ export function CompanyDetailClient({
   const [loadingType, setLoadingType] = useState<ReportType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  // 商談戦略設計(AI)
+  const [strategyStep, setStrategyStep] = useState<"intake" | "positioning" | "abm">("intake");
+  const [isUploadingDoc, startUploadDocTransition] = useTransition();
+  const [uploadDocError, setUploadDocError] = useState<string | null>(null);
+  const [isScoringPending, startScoringTransition] = useTransition();
+  const [scoringError, setScoringError] = useState<string | null>(null);
+  const [scoringSummary, setScoringSummary] = useState<string | null>(null);
+  const [prospectName, setProspectName] = useState("");
+  const [prospectNotes, setProspectNotes] = useState("");
+  const [abmResult, setAbmResult] = useState<AbmRecommendation | null>(null);
+  const [isAbmPending, startAbmTransition] = useTransition();
+  const [abmError, setAbmError] = useState<string | null>(null);
+
+  function handleUploadReferenceDoc(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadDocError(null);
+    const formData = new FormData();
+    formData.set("file", file);
+    startUploadDocTransition(async () => {
+      const result = await uploadStrategyReferenceDoc(company.id, formData);
+      if ("error" in result) {
+        setUploadDocError(result.error);
+      } else {
+        router.refresh();
+      }
+    });
+    e.target.value = "";
+  }
+
+  function handleGenerateScores() {
+    setScoringError(null);
+    startScoringTransition(async () => {
+      const result = await generatePrincipleScores(company.id);
+      if ("error" in result) {
+        setScoringError(result.error);
+      } else {
+        setScoringSummary(result.summary);
+        router.refresh();
+      }
+    });
+  }
+
+  function handleGenerateAbm() {
+    setAbmError(null);
+    setAbmResult(null);
+    startAbmTransition(async () => {
+      const result = await generateAbmRecommendation(company.id, {
+        name: prospectName,
+        notes: prospectNotes,
+      });
+      if ("error" in result) {
+        setAbmError(result.error);
+      } else {
+        setAbmResult(result);
+      }
+    });
+  }
 
   async function handleExportJson() {
     setIsExporting(true);
@@ -451,6 +531,209 @@ export function CompanyDetailClient({
         {/* 商談準備タブ */}
         {activeTab === "prep" && (
           <div>
+            {/* 商談戦略設計(AI) */}
+            <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5">
+              <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Target className="h-4 w-4 text-brand-600" />
+                商談戦略設計(AI)
+              </h3>
+              <p className="mb-4 text-xs text-slate-500">
+                チャット形式で企業情報・商談戦略をヒアリングし、購買心理7原則のスコアと
+                商談相手ごとの見せ方を提案します。
+              </p>
+
+              <div className="mb-5 flex gap-1.5 border-b border-slate-100">
+                {(
+                  [
+                    { key: "intake", label: "① 企業情報" },
+                    { key: "positioning", label: "② 商談戦略" },
+                    { key: "abm", label: "③ 個社相関(ABM)" },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setStrategyStep(s.key)}
+                    className={`relative px-3 py-2 text-xs font-medium transition-colors ${
+                      strategyStep === s.key ? "text-brand-700" : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    {s.label}
+                    {strategyStep === s.key && (
+                      <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {strategyStep === "intake" && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+                  <StrategyChatPanel
+                    companyId={company.id}
+                    step="intake"
+                    onAdvance={() => setStrategyStep("positioning")}
+                  />
+                  <StrategyExtractionPanel
+                    fields={[
+                      { label: "会社名", value: company.name },
+                      { label: "URL", value: company.url },
+                      { label: "設立年", value: company.founded_year },
+                      { label: "従業員数", value: company.employee_count },
+                      { label: "事業内容", value: company.business_summary },
+                      { label: "顧客層", value: company.target_customer_profile },
+                      { label: "現状課題", value: company.current_issues },
+                      { label: "料金プラン", value: company.pricing_plan },
+                    ]}
+                  />
+                </div>
+              )}
+
+              {strategyStep === "positioning" && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-dashed border-slate-200 p-4">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600 hover:text-brand-600">
+                      <Paperclip className="h-3.5 w-3.5" />
+                      {isUploadingDoc
+                        ? "アップロード中..."
+                        : company.strategy_reference_doc_url
+                          ? "参考資料をアップロード済み(再アップロードで差し替え)"
+                          : "参考資料(提案資料・PPT/PDF等)をアップロード"}
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx"
+                        className="hidden"
+                        disabled={isUploadingDoc}
+                        onChange={handleUploadReferenceDoc}
+                      />
+                    </label>
+                    {company.strategy_reference_doc_url && (
+                      <a
+                        href={company.strategy_reference_doc_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block text-xs text-brand-600 underline"
+                      >
+                        アップロード済みの資料を開く
+                      </a>
+                    )}
+                    {uploadDocError && <p className="mt-2 text-xs text-red-600">{uploadDocError}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+                    <StrategyChatPanel
+                      companyId={company.id}
+                      step="positioning"
+                      onAdvance={() => setStrategyStep("abm")}
+                    />
+                    <StrategyExtractionPanel
+                      fields={[
+                        { label: "差別化要因", value: company.key_differentiators },
+                        { label: "訴求軸", value: company.appeal_axis },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <button
+                      type="button"
+                      onClick={handleGenerateScores}
+                      disabled={isScoringPending}
+                      className="btn-brand btn-sm disabled:opacity-50"
+                    >
+                      {isScoringPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {isScoringPending ? "算出中..." : "購買心理7原則スコアを算出する"}
+                    </button>
+                    {scoringError && <p className="mt-2 text-xs text-red-600">{scoringError}</p>}
+                    {scoringSummary && <p className="mt-3 text-sm text-slate-600">{scoringSummary}</p>}
+                    <div className="mt-4">
+                      <StrategyPrincipleChart scores={company.principle_scores} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {strategyStep === "abm" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="field-label">商談相手企業名</label>
+                      <input
+                        value={prospectName}
+                        onChange={(e) => setProspectName(e.target.value)}
+                        placeholder="例: 株式会社サンプル"
+                        className="field"
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">商談相手に関する情報・メモ</label>
+                      <input
+                        value={prospectNotes}
+                        onChange={(e) => setProspectNotes(e.target.value)}
+                        placeholder="業種、課題感、担当者の役職など分かる範囲で"
+                        className="field"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAbm}
+                    disabled={isAbmPending || !prospectName.trim()}
+                    className="btn-brand btn-sm disabled:opacity-50"
+                  >
+                    {isAbmPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {isAbmPending ? "生成中..." : "見せ方の提案を生成する"}
+                  </button>
+                  {abmError && <p className="text-xs text-red-600">{abmError}</p>}
+                  {abmResult && (
+                    <div className="card space-y-4 p-5">
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          推奨アングル
+                        </h4>
+                        <p className="text-sm text-slate-700">{abmResult.recommended_angle}</p>
+                      </div>
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          伝えるべきメッセージ
+                        </h4>
+                        <ul className="ml-4 list-disc space-y-1 text-sm text-slate-700">
+                          {abmResult.key_messages.map((m, i) => (
+                            <li key={i}>{m}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          重点的に訴求すべき原則
+                        </h4>
+                        <ul className="ml-4 list-disc space-y-1 text-sm text-slate-700">
+                          {abmResult.principles_to_emphasize.map((m, i) => (
+                            <li key={i}>{m}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">注意点</h4>
+                        <ul className="ml-4 list-disc space-y-1 text-sm text-slate-700">
+                          {abmResult.cautions.map((m, i) => (
+                            <li key={i}>{m}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="mb-6 flex items-center justify-between rounded-xl border border-slate-200 bg-gradient-to-br from-brand-50/70 to-white p-4">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">

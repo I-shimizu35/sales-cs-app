@@ -28,6 +28,10 @@ export type SupportPhase =
   | "operation_prep"
   | "operating";
 
+// 購買心理7原則。アイドマ社名の由来であるAIDMAモデルの拡張版。
+export type PrincipleName = "関心" | "興味" | "連想" | "欲望" | "比較" | "信念" | "決意";
+export type PrincipleScores = Partial<Record<PrincipleName, number>>;
+
 export interface Company {
   id: string;
   name: string;
@@ -50,6 +54,15 @@ export interface Company {
   notification_email: string | null;
   default_deal_category: string | null;
   default_lead_source: string | null;
+  // 商談戦略設計(AI)用フィールド
+  founded_year: number | null;
+  employee_count: number | null;
+  target_customer_profile: string | null;
+  pricing_plan: string | null;
+  key_differentiators: string | null;
+  appeal_axis: string | null;
+  strategy_reference_doc_url: string | null;
+  principle_scores: PrincipleScores | null;
   created_at: string;
   updated_at: string;
 }
@@ -130,7 +143,11 @@ export type ReportType =
   | "temperature_score"
   | "win_probability"
   | "forecast_reflection"
-  | "deal_sheet_reflection";
+  | "deal_sheet_reflection"
+  | "strategy_intake_turn"
+  | "strategy_positioning_turn"
+  | "strategy_principle_scoring"
+  | "strategy_abm_recommendation";
 
 export interface GeneratedReport {
   id: string;

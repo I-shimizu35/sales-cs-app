@@ -113,4 +113,8 @@ export const REPORT_TYPE_LABEL: Record<ReportType, string> = {
   win_probability: "受注確度",
   forecast_reflection: "ヨミ表反映",
   deal_sheet_reflection: "案件管理表反映",
+  strategy_intake_turn: "企業情報ヒアリング",
+  strategy_positioning_turn: "商談戦略ヒアリング",
+  strategy_principle_scoring: "購買心理7原則スコアリング",
+  strategy_abm_recommendation: "個社相関(ABM)提案",
 };

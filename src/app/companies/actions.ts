@@ -150,6 +150,9 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
         ? (formData.get("owner_user_id") as string) || null
         : existing.owner_user_id;
 
+  const foundedYearRaw = formData.get("founded_year") as string | null;
+  const employeeCountRaw = formData.get("employee_count") as string | null;
+
   const { error } = await supabase
     .from("companies")
     .update({
@@ -167,6 +170,12 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
       default_deal_category: formData.get("default_deal_category") || null,
       default_lead_source: formData.get("default_lead_source") || null,
       owner_user_id: resolvedOwnerUserId,
+      founded_year: foundedYearRaw ? Number(foundedYearRaw) : null,
+      employee_count: employeeCountRaw ? Number(employeeCountRaw) : null,
+      target_customer_profile: formData.get("target_customer_profile") || null,
+      pricing_plan: formData.get("pricing_plan") || null,
+      key_differentiators: formData.get("key_differentiators") || null,
+      appeal_axis: formData.get("appeal_axis") || null,
     })
     .eq("id", companyId);
 

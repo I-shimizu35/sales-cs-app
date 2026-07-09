@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight, X } from "lucide-react";
+import { Search, Plus, Building2, User, ChevronRight, SearchX, ArrowRight, X, Target } from "lucide-react";
 import { Company, SupportPhase } from "@/lib/types";
 import {
   SUPPORT_PHASE_LABEL,
@@ -193,6 +193,11 @@ export function CompanyListClient({
                         <span className="font-medium text-slate-900 transition-colors group-hover:text-brand-600">
                           {company.name}
                         </span>
+                        {company.principle_scores && (
+                          <span title="購買心理7原則スコア算定済み">
+                            <Target className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{company.industry ?? "-"}</td>

@@ -440,6 +440,85 @@ export function CompanyDetailClient({
                   className="field"
                 />
               </div>
+              <div className="mt-6">
+                <h4 className="mb-2 text-xs font-semibold text-slate-500">
+                  商談戦略設計データ(「商談準備(AI)」タブのチャットで自動入力されます)
+                </h4>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label">設立年</label>
+                    <input
+                      type="number"
+                      name="founded_year"
+                      defaultValue={company.founded_year ?? ""}
+                      disabled={!canEditCompany}
+                      className="field"
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">従業員数</label>
+                    <input
+                      type="number"
+                      name="employee_count"
+                      defaultValue={company.employee_count ?? ""}
+                      disabled={!canEditCompany}
+                      className="field"
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">顧客層</label>
+                    <input
+                      name="target_customer_profile"
+                      defaultValue={company.target_customer_profile ?? ""}
+                      disabled={!canEditCompany}
+                      className="field"
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">料金プラン</label>
+                    <input
+                      name="pricing_plan"
+                      defaultValue={company.pricing_plan ?? ""}
+                      disabled={!canEditCompany}
+                      className="field"
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">差別化要因</label>
+                    <input
+                      name="key_differentiators"
+                      defaultValue={company.key_differentiators ?? ""}
+                      disabled={!canEditCompany}
+                      className="field"
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">訴求軸</label>
+                    <input
+                      name="appeal_axis"
+                      defaultValue={company.appeal_axis ?? ""}
+                      disabled={!canEditCompany}
+                      placeholder="例: コスト削減/成長投資/リスク回避/運用改善"
+                      className="field"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                  <span>購買心理7原則スコア:</span>
+                  {company.principle_scores ? (
+                    <span className="badge border-emerald-200 bg-emerald-50 text-emerald-700">算定済み</span>
+                  ) : (
+                    <span className="badge border-slate-100 bg-slate-50 text-slate-400">未算定</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("prep")}
+                    className="text-brand-600 underline hover:no-underline"
+                  >
+                    商談準備(AI)タブで確認・算出する
+                  </button>
+                </div>
+              </div>
             </section>
             <section className="card p-6">
               <h3 className="mb-4 text-sm font-semibold text-slate-900">目標・課題設定</h3>

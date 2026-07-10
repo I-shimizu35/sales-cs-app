@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   Search,
+  BookOpen,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase";
 import { UserRole } from "@/lib/types";
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: "/calendar", label: "アクションカレンダー", icon: CalendarDays },
   { href: "/transcripts/new", label: "文字起こし入力", icon: FileText },
   { href: "/feedback/generate", label: "商談FB生成", icon: Sparkles },
+  { href: "/knowledge", label: "ナレッジベース", icon: BookOpen },
   { href: "/reports", label: "生成履歴", icon: History },
 ];
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
 import { Company, GeneratedReport, AppUser, CompanyNote } from "@/lib/types";
 import { getCurrentUser, isManagerOrAdmin } from "@/lib/auth";
+import { getLeadsTableRows } from "@/lib/leads-table-data";
 import { CompanyDetailClient } from "./company-detail-client";
 
 export const dynamic = "force-dynamic";
@@ -71,12 +72,13 @@ export default async function CompanyDetailPage({
   const company = await getCompany(params.id);
   if (!company) notFound();
 
-  const [generatedReports, users, currentUser, supporters, notes] = await Promise.all([
+  const [generatedReports, users, currentUser, supporters, notes, leads] = await Promise.all([
     getGeneratedReports(company.id),
     getUsers(),
     getCurrentUser(),
     getSupporters(company.id),
     getNotes(company.id),
+    getLeadsTableRows({ companyId: company.id }),
   ]);
 
   const canEditCompany =
@@ -93,6 +95,7 @@ export default async function CompanyDetailPage({
       users={users}
       supporters={supporters}
       notes={notes}
+      leads={leads}
       userNameById={userNameById}
       currentUserId={currentUser?.id ?? null}
       canEditCompany={canEditCompany}

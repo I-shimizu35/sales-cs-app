@@ -294,10 +294,12 @@ export interface AbmRecommendation {
 /**
  * 自社の商談戦略プロファイル(7原則スコア・差別化要因・訴求軸)と、
  * 商談相手(プロスペクト)の情報から、見せ方の提案を1回生成する。
+ * leadIdが指定された場合は、そのリード(実データ)の活動履歴・アプローチ結果も
+ * AIへの入力に加える(自由入力のみだった状態からの改善)。
  */
 export async function generateAbmRecommendation(
   companyId: string,
-  prospectInfo: { name: string; notes: string }
+  prospectInfo: { name: string; notes: string; leadId?: string | null }
 ): Promise<AbmRecommendation | { error: string }> {
   const supabase = createServerClient();
   const company = await getCompanyOrThrow(supabase, companyId);
@@ -307,12 +309,30 @@ export async function generateAbmRecommendation(
     return { error: "商談相手企業名を入力してください。" };
   }
 
+  let leadContext = "(リード未連携。自由入力のメモのみ)";
+  if (prospectInfo.leadId) {
+    const { data: lead, error: leadError } = await supabase
+      .from("leads")
+      .select("id, company_id, lead_company_name, activity_summary, last_approach_result, lead_source")
+      .eq("id", prospectInfo.leadId)
+      .single();
+    if (leadError || !lead || lead.company_id !== companyId) {
+      return { error: "指定されたリードが見つかりませんでした。" };
+    }
+    leadContext = [
+      `アプローチ経路: ${lead.lead_source ?? "(不明)"}`,
+      `これまでの活動概要: ${lead.activity_summary ?? "(なし)"}`,
+      `直近のアプローチ結果: ${lead.last_approach_result ?? "(なし)"}`,
+    ].join("\n");
+  }
+
   const variables = {
     principle_scores: JSON.stringify(company.principle_scores ?? {}),
     key_differentiators: company.key_differentiators ?? "(未入力)",
     appeal_axis: company.appeal_axis ?? "(未入力)",
     prospect_name: prospectInfo.name,
     prospect_notes: prospectInfo.notes || "(特になし)",
+    lead_context: leadContext,
   };
 
   let content: AbmRecommendation;
@@ -324,7 +344,7 @@ export async function generateAbmRecommendation(
       target_type: "company",
       target_id: companyId,
       report_type: "strategy_abm_recommendation",
-      content: { ...content, prospect_name: prospectInfo.name },
+      content: { ...content, prospect_name: prospectInfo.name, lead_id: prospectInfo.leadId ?? null },
       generated_by: actor.id,
       prompt_id: promptId,
     });
@@ -344,7 +364,11 @@ export async function generateAbmRecommendation(
     action: "generate",
     targetType: "company",
     targetId: companyId,
-    detail: { reportType: "strategy_abm_recommendation", prospectName: prospectInfo.name },
+    detail: {
+      reportType: "strategy_abm_recommendation",
+      prospectName: prospectInfo.name,
+      leadId: prospectInfo.leadId ?? null,
+    },
   });
 
   return content;

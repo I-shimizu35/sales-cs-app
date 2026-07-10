@@ -17,6 +17,7 @@ import {
   Target,
 } from "lucide-react";
 import { Company, GeneratedReport, ReportType, AppUser, CompanyNote } from "@/lib/types";
+import { LeadsTableRow } from "@/components/leads-table";
 import { getSupportState, SUPPORT_STATE_LABEL, SUPPORT_STATE_BADGE_CLASS } from "@/lib/status";
 import { GeneratedContentView } from "@/components/generated-content-view";
 import { EmptyState } from "@/components/empty-state";
@@ -53,6 +54,7 @@ interface Props {
   users: AppUser[];
   supporters: { id: string; user_id: string }[];
   notes: CompanyNote[];
+  leads: LeadsTableRow[];
   userNameById: Record<string, string>;
   currentUserId: string | null;
   canEditCompany: boolean;
@@ -67,6 +69,7 @@ export function CompanyDetailClient({
   users,
   supporters,
   notes,
+  leads,
   userNameById,
   currentUserId,
   canEditCompany,
@@ -89,6 +92,7 @@ export function CompanyDetailClient({
   const [isScoringPending, startScoringTransition] = useTransition();
   const [scoringError, setScoringError] = useState<string | null>(null);
   const [scoringSummary, setScoringSummary] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>("");
   const [prospectName, setProspectName] = useState("");
   const [prospectNotes, setProspectNotes] = useState("");
   const [abmResult, setAbmResult] = useState<AbmRecommendation | null>(null);
@@ -125,6 +129,17 @@ export function CompanyDetailClient({
     });
   }
 
+  function handleSelectLead(leadId: string) {
+    setSelectedLeadId(leadId);
+    if (!leadId) return;
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    setProspectName(lead.lead_company_name);
+    setProspectNotes(
+      [lead.activity_summary, lead.last_approach_result].filter(Boolean).join(" / ") || ""
+    );
+  }
+
   function handleGenerateAbm() {
     setAbmError(null);
     setAbmResult(null);
@@ -132,6 +147,7 @@ export function CompanyDetailClient({
       const result = await generateAbmRecommendation(company.id, {
         name: prospectName,
         notes: prospectNotes,
+        leadId: selectedLeadId || null,
       });
       if ("error" in result) {
         setAbmError(result.error);
@@ -748,12 +764,37 @@ export function CompanyDetailClient({
 
               {strategyStep === "abm" && (
                 <div className="space-y-4">
+                  {leads.length > 0 && (
+                    <div>
+                      <label className="field-label">既存のリードから選択(任意)</label>
+                      <select
+                        value={selectedLeadId}
+                        onChange={(e) => handleSelectLead(e.target.value)}
+                        className="field"
+                      >
+                        <option value="">自由入力する</option>
+                        {leads.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.lead_company_name}
+                            {l.last_approach_result ? `(直近: ${l.last_approach_result})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        リードを選択すると、実際のアプローチ経路・活動履歴もAIへの入力に加わり、
+                        より具体的な提案になります。
+                      </p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="field-label">商談相手企業名</label>
                       <input
                         value={prospectName}
-                        onChange={(e) => setProspectName(e.target.value)}
+                        onChange={(e) => {
+                          setSelectedLeadId("");
+                          setProspectName(e.target.value);
+                        }}
                         placeholder="例: 株式会社サンプル"
                         className="field"
                       />

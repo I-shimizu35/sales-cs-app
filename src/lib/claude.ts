@@ -117,6 +117,53 @@ export async function callClaudeJson<T = Record<string, unknown>>(
   );
 }
 
+/**
+ * 商談戦略ヒアリングでアップロードされた参考資料(PDF/Word)の内容を要約する。
+ * PDFはClaudeのdocumentブロック(ネイティブ読解、スキャン画像もある程度対応)を使い、
+ * Word等テキスト抽出済みの場合はプレーンテキストとして渡す。
+ * 失敗時の扱い(アップロード自体を失敗させるか等)は呼び出し元に委ねるため、
+ * ここではthrowする。
+ */
+export async function summarizeReferenceDocument(
+  input: { kind: "pdf"; base64: string } | { kind: "text"; text: string }
+): Promise<string> {
+  if (isMockMode) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return "[モック] アップロードされた資料には、自社の導入実績・料金プラン・サポート体制についての説明が含まれていました。";
+  }
+
+  const instruction =
+    "この資料の内容を、商談戦略の検討に使えるよう300字程度で要約してください。資料に書かれていない内容を創作しないでください。要約文のみを出力し、前置きや箇条書き記号は不要です。";
+
+  const anthropicClient = getClient();
+  const content =
+    input.kind === "pdf"
+      ? [
+          {
+            type: "document" as const,
+            source: { type: "base64" as const, media_type: "application/pdf" as const, data: input.base64 },
+          },
+          { type: "text" as const, text: instruction },
+        ]
+      : `${instruction}\n\n---\n${input.text}`;
+
+  const response = await anthropicClient.messages.create({
+    model,
+    max_tokens: 1024,
+    thinking: { type: "adaptive" },
+    system: SYSTEM_INSTRUCTION,
+    messages: [{ role: "user", content }],
+  });
+
+  if (response.stop_reason === "refusal") {
+    throw new Error("Claudeがこのリクエストの生成を拒否しました(安全性ポリシーによる)。");
+  }
+  const textBlock = response.content.find(
+    (block): block is Anthropic.TextBlock => block.type === "text"
+  );
+  return textBlock?.text?.trim() ?? "";
+}
+
 function stripCodeFence(text: string): string {
   const trimmed = text.trim();
   const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);

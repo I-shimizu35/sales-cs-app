@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import mammoth from "mammoth";
 import { createServerClient } from "@/lib/supabase";
 import { assertOwnerOrManager } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
 import { recordError } from "@/lib/error-log";
-import { callClaudeJson, ClaudeJsonParseError } from "@/lib/claude";
+import { callClaudeJson, ClaudeJsonParseError, summarizeReferenceDocument } from "@/lib/claude";
 import { getPromptTemplate } from "@/lib/prompts";
 import { PrincipleScores } from "@/lib/types";
+
+// 資料の中身をAIが実際に読めるのはPDF(ネイティブ読解)とWord(テキスト抽出)のみ。
+// PowerPoint等はアップロード・保存のみ行い、内容解析は行わない(未対応であることを
+// UI側にも明示する)。
+const CONTENT_ANALYZABLE_EXTENSIONS = new Set(["pdf", "docx"]);
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -91,7 +97,9 @@ export async function sendStrategyChatMessage(
           company_profile_summary: `${company.name} / ${company.business_summary ?? "(未入力)"} / 顧客層: ${
             company.target_customer_profile ?? "(未入力)"
           }`,
-          reference_doc_summary: company.strategy_reference_doc_url ? "(参考資料あり)" : "(参考資料未アップロード)",
+          reference_doc_summary:
+            (company.strategy_reference_doc_summary as string | null) ??
+            (company.strategy_reference_doc_url ? "(資料はアップロード済みだが内容解析は未対応の形式)" : "(参考資料未アップロード)"),
           known_fields: JSON.stringify(known),
           conversation_history: formatHistory(history),
           latest_user_message: userMessage,
@@ -139,7 +147,7 @@ export async function sendStrategyChatMessage(
 export async function uploadStrategyReferenceDoc(
   companyId: string,
   formData: FormData
-): Promise<{ url: string } | { error: string }> {
+): Promise<{ url: string; summary: string | null } | { error: string }> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "ファイルを選択してください。" };
@@ -174,9 +182,25 @@ export async function uploadStrategyReferenceDoc(
     return { error: `アップロードURLの発行に失敗しました: ${signError?.message ?? ""}` };
   }
 
+  // PDF/Wordのみ内容解析を試みる。PowerPoint等は保存のみで、要約はnullのままにする。
+  let summary: string | null = null;
+  if (CONTENT_ANALYZABLE_EXTENSIONS.has(ext)) {
+    try {
+      if (ext === "pdf") {
+        summary = await summarizeReferenceDocument({ kind: "pdf", base64: fileBuffer.toString("base64") });
+      } else {
+        const { value: extractedText } = await mammoth.extractRawText({ buffer: fileBuffer });
+        summary = await summarizeReferenceDocument({ kind: "text", text: extractedText });
+      }
+    } catch (e) {
+      await recordError("strategy_document_summary", e, { companyId, fileName: file.name });
+      summary = null;
+    }
+  }
+
   const { error: updateError } = await supabase
     .from("companies")
-    .update({ strategy_reference_doc_url: signed.signedUrl })
+    .update({ strategy_reference_doc_url: signed.signedUrl, strategy_reference_doc_summary: summary })
     .eq("id", companyId);
   if (updateError) {
     return { error: `企業情報の更新に失敗しました: ${updateError.message}` };
@@ -187,12 +211,12 @@ export async function uploadStrategyReferenceDoc(
     action: "update",
     targetType: "company",
     targetId: companyId,
-    detail: { field: "strategy_reference_doc_url", event: "file_upload", fileName: file.name },
+    detail: { field: "strategy_reference_doc_url", event: "file_upload", fileName: file.name, summarized: !!summary },
   });
 
   revalidatePath(`/companies/${companyId}`);
 
-  return { url: signed.signedUrl };
+  return { url: signed.signedUrl, summary };
 }
 
 /**
@@ -212,6 +236,7 @@ export async function generatePrincipleScores(
     key_differentiators: company.key_differentiators ?? "(未入力)",
     appeal_axis: company.appeal_axis ?? "(未入力)",
     current_issues: company.current_issues ?? "(未入力)",
+    reference_doc_summary: (company.strategy_reference_doc_summary as string | null) ?? "(参考資料なし)",
   };
 
   let content: { principle_scores: PrincipleScores; summary: string };

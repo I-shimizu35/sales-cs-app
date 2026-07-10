@@ -62,6 +62,7 @@ export interface Company {
   key_differentiators: string | null;
   appeal_axis: string | null;
   strategy_reference_doc_url: string | null;
+  strategy_reference_doc_summary: string | null;
   principle_scores: PrincipleScores | null;
   created_at: string;
   updated_at: string;

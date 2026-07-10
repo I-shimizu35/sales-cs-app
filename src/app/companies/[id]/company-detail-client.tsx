@@ -673,7 +673,7 @@ export function CompanyDetailClient({
                     <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600 hover:text-brand-600">
                       <Paperclip className="h-3.5 w-3.5" />
                       {isUploadingDoc
-                        ? "アップロード中..."
+                        ? "アップロード・内容解析中..."
                         : company.strategy_reference_doc_url
                           ? "参考資料をアップロード済み(再アップロードで差し替え)"
                           : "参考資料(提案資料・PPT/PDF等)をアップロード"}
@@ -685,6 +685,9 @@ export function CompanyDetailClient({
                         onChange={handleUploadReferenceDoc}
                       />
                     </label>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      PDF・Wordは内容をAIが読み取り戦略ヒアリングに活用します。PowerPoint等は保存のみで内容解析には未対応です。
+                    </p>
                     {company.strategy_reference_doc_url && (
                       <a
                         href={company.strategy_reference_doc_url}
@@ -694,6 +697,14 @@ export function CompanyDetailClient({
                       >
                         アップロード済みの資料を開く
                       </a>
+                    )}
+                    {company.strategy_reference_doc_url && (
+                      <div className="mt-2 rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">
+                        <span className="font-medium text-slate-500">AIによる資料の要約: </span>
+                        {company.strategy_reference_doc_summary ?? (
+                          <span className="text-slate-400">(この形式は内容解析に対応していません)</span>
+                        )}
+                      </div>
                     )}
                     {uploadDocError && <p className="mt-2 text-xs text-red-600">{uploadDocError}</p>}
                   </div>

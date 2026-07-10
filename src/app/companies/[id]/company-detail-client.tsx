@@ -9,9 +9,6 @@ import {
   Loader2,
   Sparkles,
   AlertCircle,
-  CheckCircle2,
-  Rocket,
-  X,
   Download,
   Paperclip,
   Target,
@@ -25,6 +22,7 @@ import { ClientPortalPanel } from "@/components/client-portal-panel";
 import { SupportTeamPanel } from "@/components/support-team-panel";
 import { CompanyNotesPanel } from "@/components/company-notes-panel";
 import { StrategyChatPanel } from "@/components/strategy-chat-panel";
+import { InlineAlert } from "@/components/inline-alert";
 import { StrategyExtractionPanel } from "@/components/strategy-extraction-panel";
 import { StrategyPrincipleChart } from "@/components/strategy-principle-chart";
 import { updateCompany, exportCompanyDataJson } from "../actions";
@@ -254,30 +252,17 @@ export function CompanyDetailClient({
         企業一覧へ戻る
       </Link>
 
-      {showSavedBanner && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" />
-          保存しました
-        </div>
-      )}
+      {showSavedBanner && <InlineAlert variant="success">保存しました</InlineAlert>}
 
       {showNewBanner && (
-        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-          <div className="flex items-start gap-2">
-            <Rocket className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <p className="font-medium">企業を登録しました。次にやることの例:</p>
-              <ul className="mt-1 list-disc pl-5 text-xs text-brand-700">
-                <li>下の「支援状況」で支援担当者をアサインする</li>
-                <li>クライアント自身に使ってもらう場合は「クライアントポータル」を有効化する</li>
-                <li>案件の記録を始める場合は上の「この企業の管理画面に入る」から案件管理表へ</li>
-              </ul>
-            </div>
-          </div>
-          <button onClick={dismissNewBanner} className="shrink-0 text-brand-400 hover:text-brand-700">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <InlineAlert variant="info" onDismiss={dismissNewBanner}>
+          <p className="font-medium">企業を登録しました。次にやることの例:</p>
+          <ul className="mt-1 list-disc pl-5 text-xs text-brand-700">
+            <li>下の「支援状況」で支援担当者をアサインする</li>
+            <li>クライアント自身に使ってもらう場合は「クライアントポータル」を有効化する</li>
+            <li>案件の記録を始める場合は上の「この企業の管理画面に入る」から案件管理表へ</li>
+          </ul>
+        </InlineAlert>
       )}
 
       {/* Header */}
@@ -877,9 +862,7 @@ export function CompanyDetailClient({
               </div>
             </div>
 
-            {error && (
-              <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">エラー: {error}</p>
-            )}
+            {error && <InlineAlert variant="error">エラー: {error}</InlineAlert>}
 
             <div className="mb-6 flex flex-wrap gap-2">
               {PREP_REPORTS.map(({ type, label }) => (

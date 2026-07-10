@@ -12,6 +12,7 @@ import {
 import { SupportPhase } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { SummaryCard } from "@/components/summary-card";
 
 export const dynamic = "force-dynamic";
 
@@ -143,26 +144,15 @@ export default async function DashboardPage() {
       <PageHeader title="クライアント一覧" description="支援先クライアントの状況と担当者を一目で確認できます。" />
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Link href="/companies" className="card p-5 transition-colors hover:border-brand-300">
-          <div className="mb-2 flex items-center gap-2 text-slate-500">
-            <Building2 className="h-4 w-4" />
-            <h2 className="text-sm font-medium">クライアント数</h2>
-          </div>
-          <div className="text-3xl font-semibold tracking-tight text-slate-900">
-            {roster.length}
-            <span className="ml-1 text-sm font-normal text-slate-500">社</span>
-          </div>
-        </Link>
-        <Link href="/companies?supportStatus=active" className="card p-5 transition-colors hover:border-brand-300">
-          <div className="mb-2 flex items-center gap-2 text-emerald-600">
-            <Users className="h-4 w-4" />
-            <h2 className="text-sm font-medium">支援中</h2>
-          </div>
-          <div className="text-3xl font-semibold tracking-tight text-slate-900">
-            {activeCount}
-            <span className="ml-1 text-sm font-normal text-slate-500">社</span>
-          </div>
-        </Link>
+        <SummaryCard icon={<Building2 className="h-4 w-4" />} label="クライアント数" value={roster.length} unit="社" href="/companies" />
+        <SummaryCard
+          icon={<Users className="h-4 w-4" />}
+          label="支援中"
+          value={activeCount}
+          unit="社"
+          accent="text-emerald-600"
+          href="/companies?supportStatus=active"
+        />
       </div>
 
       {contractRenewalSoon.length > 0 && (

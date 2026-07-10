@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { Trash2, Save, Check, Download, Search } from "lucide-react";
 import { updateLeadFields, deleteLead } from "@/lib/leads-actions";
+import { downloadCsv } from "@/lib/csv-export";
 
 export interface LeadsTableRow {
   id: string;
@@ -44,32 +45,6 @@ const CSV_COLUMNS: { key: keyof LeadsTableRow; label: string }[] = [
   { key: "material_request_contact_name", label: "資料請求/担当者名" },
   { key: "lead_source", label: "リード取得元" },
 ];
-
-/**
- * Excel/Googleスプレッドシートの数式インジェクション対策(CWE-1236)。
- * =, +, -, @, タブ, 改行始まりのセルは先頭にシングルクォートを付与し、
- * 開いた際に数式として実行されないようにする。
- */
-function sanitizeForSpreadsheet(value: string): string {
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-}
-
-function csvEscape(rawValue: string): string {
-  const value = sanitizeForSpreadsheet(rawValue);
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
-function downloadCsv(filename: string, rows: string[][]): void {
-  const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function Cell({ children }: { children: React.ReactNode }) {
   return <td className="border-b border-slate-100 px-2 py-1.5 align-top">{children}</td>;

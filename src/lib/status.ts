@@ -84,6 +84,15 @@ export const DEAL_STAGE_LABEL: Record<DealStage, string> = {
   lost: "失注",
 };
 
+export const DEAL_STAGE_BADGE_CLASS: Record<DealStage, string> = {
+  first_contact: "bg-slate-100 text-slate-600 border-slate-200",
+  hearing: "bg-amber-50 text-amber-700 border-amber-200",
+  proposal: "bg-blue-50 text-blue-700 border-blue-200",
+  closing: "bg-brand-50 text-brand-700 border-brand-200",
+  won: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  lost: "bg-slate-50 text-slate-400 border-slate-100",
+};
+
 export const SCORE_STATUS_LABEL: Record<ScoreStatus, string> = {
   ai_draft: "AI生成(未確認)",
   manager_confirmed: "マネージャー確認済",

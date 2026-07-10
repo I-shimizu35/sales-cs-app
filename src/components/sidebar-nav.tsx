@@ -19,6 +19,7 @@ import {
   X,
   Search,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase";
 import { UserRole } from "@/lib/types";
@@ -31,12 +32,18 @@ const ROLE_LABEL: Record<UserRole, string> = {
   support: "支援担当",
 };
 
-const NAV_ITEMS = [
+// 日常業務系(毎日の営業・CS活動で使う画面)
+const PRIMARY_NAV_ITEMS = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/companies", label: "企業一覧", icon: Building2 },
   { href: "/calendar", label: "アクションカレンダー", icon: CalendarDays },
   { href: "/transcripts/new", label: "文字起こし入力", icon: FileText },
   { href: "/feedback/generate", label: "商談FB生成", icon: Sparkles },
+];
+
+// 分析・参照系(横断検索・集計・過去データの参照)
+const REFERENCE_NAV_ITEMS = [
+  { href: "/analytics", label: "分析", icon: BarChart3 },
   { href: "/knowledge", label: "ナレッジベース", icon: BookOpen },
   { href: "/reports", label: "生成履歴", icon: History },
 ];
@@ -110,7 +117,26 @@ export function SidebarNav({ role }: { role: UserRole }) {
         )}
 
         <nav className="flex-1 space-y-0.5 px-3">
-          {NAV_ITEMS.map((item) => {
+          {PRIMARY_NAV_ITEMS.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={isCollapsed ? item.label : undefined}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isCollapsed ? "justify-center px-0" : ""
+                } ${active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+              >
+                <item.icon className={`h-4 w-4 shrink-0 ${active ? "text-brand-600" : "text-slate-400"}`} />
+                {!isCollapsed && item.label}
+              </Link>
+            );
+          })}
+
+          <div className="my-3 border-t border-slate-100" />
+
+          {REFERENCE_NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
               <Link

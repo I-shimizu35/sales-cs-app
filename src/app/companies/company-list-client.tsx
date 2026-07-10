@@ -15,6 +15,7 @@ import {
 } from "@/lib/status";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { CompanyListMobileCards } from "@/components/company-list-mobile-cards";
 
 export interface CompanyWithOwner extends Company {
   owner: { name: string } | null;
@@ -46,12 +47,13 @@ export function CompanyListClient({
   const [industryFilter, setIndustryFilter] = useState<string>("");
   const [stateFilter, setStateFilter] = useState<SupportState | "">("");
 
-  // ダッシュボードのKPIカードからのドリルダウン用: URLクエリパラメータをそのまま絞り込み条件として使う
+  // ダッシュボード・分析ページのドリルダウン用: URLクエリパラメータをそのまま絞り込み条件として使う
   const supportStatusParam = searchParams.get("supportStatus");
   const phaseParam = searchParams.get("phase") as SupportPhase | null;
   const ownerParam = searchParams.get("owner");
   const supporterParam = searchParams.get("supporterId");
-  const hasUrlFilter = !!(supportStatusParam || phaseParam || ownerParam || supporterParam);
+  const industryParam = searchParams.get("industry");
+  const hasUrlFilter = !!(supportStatusParam || phaseParam || ownerParam || supporterParam || industryParam);
 
   const industries = useMemo(
     () => Array.from(new Set(companies.map((c) => c.industry).filter(Boolean))) as string[],
@@ -67,6 +69,7 @@ export function CompanyListClient({
       if (phaseParam && c.support_phase !== phaseParam) return false;
       if (ownerParam && c.owner_user_id !== ownerParam) return false;
       if (supporterParam && !(supporterIdsByCompany[c.id] ?? []).includes(supporterParam)) return false;
+      if (industryParam && c.industry !== industryParam) return false;
       return true;
     });
   }, [
@@ -78,6 +81,7 @@ export function CompanyListClient({
     phaseParam,
     ownerParam,
     supporterParam,
+    industryParam,
     supporterIdsByCompany,
   ]);
 
@@ -148,23 +152,25 @@ export function CompanyListClient({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="p-6">
-            <EmptyState
-              icon={companies.length === 0 ? Building2 : SearchX}
-              title={
-                companies.length === 0
-                  ? "企業が登録されていません"
-                  : "条件に一致する企業がありません"
-              }
-              description={
-                companies.length === 0 ? "「新規企業登録」から追加してください。" : "検索条件を変えてお試しください。"
-              }
-            />
-          </div>
-        ) : (
+      {/* Table(md以上) / カード表示(md未満) */}
+      {filtered.length === 0 ? (
+        <div className="card p-6">
+          <EmptyState
+            icon={companies.length === 0 ? Building2 : SearchX}
+            title={
+              companies.length === 0
+                ? "企業が登録されていません"
+                : "条件に一致する企業がありません"
+            }
+            description={
+              companies.length === 0 ? "「新規企業登録」から追加してください。" : "検索条件を変えてお試しください。"
+            }
+          />
+        </div>
+      ) : (
+        <>
+          <CompanyListMobileCards companies={filtered} supporterNamesByCompany={supporterNamesByCompany} />
+          <div className="card hidden overflow-hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
@@ -236,8 +242,9 @@ export function CompanyListClient({
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

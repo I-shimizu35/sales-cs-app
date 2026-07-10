@@ -1,5 +1,6 @@
 import { createServerClient } from "./supabase";
-import { DealStage } from "./types";
+import { DealStage, SupportPhase } from "./types";
+import { DEAL_STAGE_LABEL, SUPPORT_PHASE_LABEL } from "./status";
 
 export interface MonthlyTrendPoint {
   month: string; // 'YYYY-MM'
@@ -225,4 +226,202 @@ export async function getAnalyticsData(filter: {
     lostReasonBreakdown,
     availableMonths: months,
   };
+}
+
+/**
+ * 全社横断セグメント分析(/analytics)用の集計。
+ * 「案件を1つの軸で切り分けて比較する」ことに絞ったv1で、複数軸の掛け合わせ
+ * (ピボット)は行わない。既存のgetAnalyticsDataは変更せず、こちらは新規に追加する。
+ */
+export type SegmentDimension = "industry" | "phase" | "owner" | "stage" | "dealCategory" | "leadSource";
+
+export const SEGMENT_DIMENSION_LABEL: Record<SegmentDimension, string> = {
+  industry: "業種",
+  phase: "支援フェーズ",
+  owner: "案件担当者(社内)",
+  stage: "案件ステージ",
+  dealCategory: "案件区分",
+  leadSource: "流入経路",
+};
+
+const UNSET_LABEL = "(未設定)";
+
+export interface SegmentPoint {
+  /** 生の値(業種の文字列、支援フェーズのenumキー、案件担当者のuser_id等)。ドリルダウンURL構築用。 */
+  segment: string;
+  /** 画面表示用のラベル(support_phaseなど、enumキーを日本語ラベルに変換済み)。 */
+  segmentLabel: string;
+  dealCount: number;
+  wonCount: number;
+  wonAmount: number;
+  openExpectedRevenue: number;
+  winRate: number; // wonCount / (wonCount + lostCount)、0件時は0
+}
+
+export interface SegmentedAnalyticsSummary {
+  totalDealCount: number;
+  wonCount: number;
+  lostCount: number;
+  wonAmount: number;
+  openExpectedRevenue: number;
+  winRate: number;
+}
+
+export interface SegmentedAnalyticsResult {
+  summary: SegmentedAnalyticsSummary;
+  segments: SegmentPoint[];
+  monthlyTrend: MonthlyTrendPoint[];
+}
+
+export interface SegmentedAnalyticsFilter {
+  groupBy: SegmentDimension;
+  dateFrom?: string;
+  dateTo?: string;
+  industry?: string;
+  phase?: SupportPhase;
+  ownerId?: string;
+  accessibleCompanyIds: string[] | null;
+}
+
+interface SegmentDealRow {
+  id: string;
+  company_id: string;
+  stage: DealStage;
+  amount: number | null;
+  expected_revenue: number | null;
+  deal_category: string | null;
+  lead_source: string | null;
+  owner_user_id: string | null;
+  first_meeting_date: string | null;
+  updated_at: string;
+}
+
+function computeWinRate(wonCount: number, lostCount: number): number {
+  const decided = wonCount + lostCount;
+  return decided === 0 ? 0 : wonCount / decided;
+}
+
+export async function getSegmentedAnalytics(
+  filter: SegmentedAnalyticsFilter
+): Promise<SegmentedAnalyticsResult> {
+  const supabase = createServerClient();
+
+  let companyQuery = supabase.from("companies").select("id, industry, support_phase");
+  if (filter.accessibleCompanyIds) companyQuery = companyQuery.in("id", filter.accessibleCompanyIds);
+  const { data: companies, error: companiesError } = await companyQuery;
+  if (companiesError) throw new Error(`企業情報の取得に失敗しました: ${companiesError.message}`);
+
+  const companyById = new Map((companies ?? []).map((c) => [c.id, c]));
+  let targetCompanyIds = (companies ?? []).map((c) => c.id);
+  if (filter.industry) targetCompanyIds = targetCompanyIds.filter((id) => companyById.get(id)?.industry === filter.industry);
+  if (filter.phase) targetCompanyIds = targetCompanyIds.filter((id) => companyById.get(id)?.support_phase === filter.phase);
+
+  if (targetCompanyIds.length === 0) {
+    return {
+      summary: { totalDealCount: 0, wonCount: 0, lostCount: 0, wonAmount: 0, openExpectedRevenue: 0, winRate: 0 },
+      segments: [],
+      monthlyTrend: monthRange().map((month) => ({ month, 新規商談数: 0, 受注件数: 0, 受注金額: 0 })),
+    };
+  }
+
+  let dealQuery = supabase
+    .from("deals")
+    .select(
+      "id, company_id, stage, amount, expected_revenue, deal_category, lead_source, owner_user_id, first_meeting_date, updated_at"
+    )
+    .in("company_id", targetCompanyIds);
+  if (filter.dateFrom) dealQuery = dealQuery.gte("first_meeting_date", filter.dateFrom);
+  if (filter.dateTo) dealQuery = dealQuery.lte("first_meeting_date", filter.dateTo);
+  const { data: dealsData, error: dealsError } = await dealQuery;
+  if (dealsError) throw new Error(`案件情報の取得に失敗しました: ${dealsError.message}`);
+
+  let deals = (dealsData ?? []) as SegmentDealRow[];
+  if (filter.ownerId) deals = deals.filter((d) => d.owner_user_id === filter.ownerId);
+
+  const ownerIds = Array.from(new Set(deals.map((d) => d.owner_user_id).filter((id): id is string => !!id)));
+  const nameById: Record<string, string> = {};
+  if (ownerIds.length > 0) {
+    const { data: users } = await supabase.from("users").select("id, name").in("id", ownerIds);
+    for (const u of users ?? []) nameById[u.id] = u.name;
+  }
+
+  // segment: ドリルダウンURL構築用の生の値(空文字列=未設定)。segmentLabel: 画面表示用。
+  function segmentKeyFor(d: SegmentDealRow): { key: string; label: string } {
+    const company = companyById.get(d.company_id);
+    switch (filter.groupBy) {
+      case "industry": {
+        const key = company?.industry ?? "";
+        return { key, label: key || UNSET_LABEL };
+      }
+      case "phase": {
+        const key = company?.support_phase ?? "";
+        return { key, label: key ? SUPPORT_PHASE_LABEL[key as SupportPhase] : UNSET_LABEL };
+      }
+      case "owner": {
+        const key = d.owner_user_id ?? "";
+        return { key, label: key ? (nameById[key] ?? "不明") : UNSET_LABEL };
+      }
+      case "stage":
+        return { key: d.stage, label: DEAL_STAGE_LABEL[d.stage] };
+      case "dealCategory": {
+        const key = d.deal_category ?? "";
+        return { key, label: key || UNSET_LABEL };
+      }
+      case "leadSource": {
+        const key = d.lead_source ?? "";
+        return { key, label: key || UNSET_LABEL };
+      }
+    }
+  }
+
+  const bySegment = new Map<string, { label: string; deals: SegmentDealRow[] }>();
+  for (const d of deals) {
+    const { key, label } = segmentKeyFor(d);
+    const entry = bySegment.get(key) ?? { label, deals: [] };
+    entry.deals.push(d);
+    bySegment.set(key, entry);
+  }
+
+  const segments: SegmentPoint[] = Array.from(bySegment.entries())
+    .map(([segment, { label, deals: segmentDeals }]) => {
+      const won = segmentDeals.filter((d) => d.stage === "won");
+      const lost = segmentDeals.filter((d) => d.stage === "lost");
+      const open = segmentDeals.filter((d) => d.stage !== "won" && d.stage !== "lost");
+      return {
+        segment,
+        segmentLabel: label,
+        dealCount: segmentDeals.length,
+        wonCount: won.length,
+        wonAmount: won.reduce((sum, d) => sum + (d.amount ?? 0), 0),
+        openExpectedRevenue: open.reduce((sum, d) => sum + (d.expected_revenue ?? d.amount ?? 0), 0),
+        winRate: computeWinRate(won.length, lost.length),
+      };
+    })
+    .sort((a, b) => b.dealCount - a.dealCount);
+
+  const wonDeals = deals.filter((d) => d.stage === "won");
+  const lostDeals = deals.filter((d) => d.stage === "lost");
+  const openDeals = deals.filter((d) => d.stage !== "won" && d.stage !== "lost");
+  const summary: SegmentedAnalyticsSummary = {
+    totalDealCount: deals.length,
+    wonCount: wonDeals.length,
+    lostCount: lostDeals.length,
+    wonAmount: wonDeals.reduce((sum, d) => sum + (d.amount ?? 0), 0),
+    openExpectedRevenue: openDeals.reduce((sum, d) => sum + (d.expected_revenue ?? d.amount ?? 0), 0),
+    winRate: computeWinRate(wonDeals.length, lostDeals.length),
+  };
+
+  const months = monthRange();
+  const monthlyTrend: MonthlyTrendPoint[] = months.map((month) => {
+    const newMeetings = deals.filter((d) => d.first_meeting_date?.startsWith(month)).length;
+    const won = deals.filter((d) => d.stage === "won" && d.updated_at?.startsWith(month));
+    return {
+      month,
+      新規商談数: newMeetings,
+      受注件数: won.length,
+      受注金額: won.reduce((sum, d) => sum + (d.amount ?? 0), 0),
+    };
+  });
+
+  return { summary, segments, monthlyTrend };
 }

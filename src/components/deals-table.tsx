@@ -7,6 +7,7 @@ import { ExternalLink, Save, Check, Trash2, Download, Columns3, Search, Papercli
 import { updateDealFields, deleteDeal, duplicateDeal, uploadDealAttachment } from "@/app/companies/[id]/deal-actions";
 import { DEAL_STAGE_LABEL } from "@/lib/status";
 import { DealStage } from "@/lib/types";
+import { downloadCsv } from "@/lib/csv-export";
 import { DealsKanbanBoard } from "./deals-kanban-board";
 import { DealsMobileList } from "./deals-mobile-list";
 
@@ -106,32 +107,6 @@ function cellTextValue(row: DealsTableRow, key: string): string {
   return String(value);
 }
 
-/**
- * Excel/Googleスプレッドシートの数式インジェクション対策(CWE-1236)。
- * =, +, -, @, タブ, 改行始まりのセルは先頭にシングルクォートを付与し、
- * 開いた際に数式として実行されないようにする。
- */
-function sanitizeForSpreadsheet(value: string): string {
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-}
-
-function csvEscape(rawValue: string): string {
-  const value = sanitizeForSpreadsheet(rawValue);
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
-function downloadCsv(filename: string, rows: string[][]): void {
-  const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-  // ExcelでUTF-8を文字化けさせずに開けるようBOMを付与
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function Cell({ children }: { children: React.ReactNode }) {
   return <td className="border-b border-slate-100 px-2 py-1.5 align-top">{children}</td>;

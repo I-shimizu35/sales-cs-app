@@ -173,22 +173,40 @@ export async function searchKnowledgeBase(
   return attachCases(Array.from(companyMap.values()), accessibleCompanyIds);
 }
 
-/** 検索前のデフォルト表示: 商談戦略プロファイル(差別化要因・訴求軸)が入力済みの企業を新しい順に。 */
+/**
+ * 検索前のデフォルト表示: 案件(ケース)が1件以上ある企業を、直近の案件更新が新しい順に。
+ * 統計カードの「登録企業数」(案件がある企業)と母数を揃えることで、
+ * 「10社/29件蓄積されている」のに一覧が空、という矛盾を避ける。
+ */
 export async function getDefaultKnowledgeBaseResults(
   accessibleCompanyIds: string[] | null,
   limit = 10
 ): Promise<KnowledgeCompanyResult[]> {
   const supabase = createServerClient();
-  let companyQuery = supabase
+
+  let dealQuery = supabase.from("deals").select("company_id, updated_at").order("updated_at", { ascending: false });
+  if (accessibleCompanyIds) dealQuery = dealQuery.in("company_id", accessibleCompanyIds);
+  const { data: deals, error: dealsError } = await dealQuery;
+  if (dealsError) throw new Error(`案件情報の取得に失敗しました: ${dealsError.message}`);
+
+  const latestCompanyIds: string[] = [];
+  const seen = new Set<string>();
+  for (const d of deals ?? []) {
+    if (seen.has(d.company_id)) continue;
+    seen.add(d.company_id);
+    latestCompanyIds.push(d.company_id);
+    if (latestCompanyIds.length >= limit) break;
+  }
+  if (latestCompanyIds.length === 0) return [];
+
+  const { data: companies, error: companiesError } = await supabase
     .from("companies")
-    .select(`${COMPANY_SELECT}, updated_at`)
-    .or("key_differentiators.not.is.null,appeal_axis.not.is.null")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-  if (accessibleCompanyIds) companyQuery = companyQuery.in("id", accessibleCompanyIds);
+    .select(COMPANY_SELECT)
+    .in("id", latestCompanyIds);
+  if (companiesError) throw new Error(`企業情報の取得に失敗しました: ${companiesError.message}`);
 
-  const { data, error } = await companyQuery;
-  if (error) throw new Error(`企業情報の取得に失敗しました: ${error.message}`);
+  const companyById = new Map((companies ?? []).map((c) => [c.id, c as CompanyRow]));
+  const orderedCompanies = latestCompanyIds.map((id) => companyById.get(id)).filter((c): c is CompanyRow => !!c);
 
-  return attachCases((data ?? []) as CompanyRow[], accessibleCompanyIds);
+  return attachCases(orderedCompanies, accessibleCompanyIds);
 }

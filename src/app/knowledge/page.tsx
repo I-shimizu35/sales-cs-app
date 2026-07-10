@@ -99,10 +99,8 @@ export default async function KnowledgeBasePage({ searchParams }: { searchParams
         </button>
       </form>
 
-      {!q && (
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">
-          商談戦略プロファイルが登録済みの企業(最新順)
-        </h3>
+      {!q && results.length > 0 && (
+        <h3 className="mb-3 text-sm font-semibold text-slate-900">案件のある企業(直近の更新順)</h3>
       )}
 
       {results.length === 0 ? (
@@ -112,7 +110,7 @@ export default async function KnowledgeBasePage({ searchParams }: { searchParams
           description={
             q
               ? undefined
-              : "企業詳細の「商談戦略設計(AI)」タブで差別化要因・訴求軸を登録すると、ここに表示されます。"
+              : "企業に案件を登録すると、ここに表示されます。商談戦略設計(AI)タブで差別化要因・訴求軸を登録すると、あわせて表示されます。"
           }
         />
       ) : (

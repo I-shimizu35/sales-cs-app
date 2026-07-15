@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # lint/typecheck/buildはSupabase等の外部サービスに接続しないため、secretsなしで常に実行できる。
+  # NEXT_PUBLIC_SUPABASE_URL/ANON_KEYはsrc/lib/supabase/index.tsがモジュール読み込み時に
+  # 存在チェックのみ行うため、値はダミーで構わない。
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          CLAUDE_MOCK: "true"
+
+  # E2E(Playwright)はtests/e2eが実DBに対してデータの作成・削除を行うため、
+  # 実際のテスト用Supabaseプロジェクトの接続情報がリポジトリのSecretsに登録されている場合のみ実行する。
+  # 未設定の場合はスキップされ、buildジョブの結果のみでCIは成立する(BL-027: 段階導入)。
+  #
+  # 必要なSecrets(リポジトリの Settings > Secrets and variables > Actions で登録):
+  #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+  #   CLIENT_SESSION_SECRET (任意の乱数文字列)
+  # 本番用Supabaseプロジェクトとは別の、テスト専用プロジェクトの利用を強く推奨する
+  # (E2Eはtests/e2e/global-teardown.tsで"E2E_"接頭辞の企業を一括削除するため)。
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLIENT_SESSION_SECRET: ${{ secrets.CLIENT_SESSION_SECRET }}
+      CLAUDE_MOCK: "true"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps
+
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 7

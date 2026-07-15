@@ -76,6 +76,7 @@ export async function createLead(formData: FormData): Promise<void> {
 
   revalidatePath(`/companies/${companyId}/workspace/leads`);
   revalidatePath("/client/leads");
+  revalidatePath("/leads");
 }
 
 export async function updateLeadFields(leadId: string, formData: FormData): Promise<void> {
@@ -123,6 +124,7 @@ export async function updateLeadFields(leadId: string, formData: FormData): Prom
 
   revalidatePath(`/companies/${existing.company_id}/workspace/leads`);
   revalidatePath("/client/leads");
+  revalidatePath("/leads");
 }
 
 export async function deleteLead(leadId: string): Promise<void> {
@@ -148,4 +150,5 @@ export async function deleteLead(leadId: string): Promise<void> {
 
   revalidatePath(`/companies/${existing.company_id}/workspace/leads`);
   revalidatePath("/client/leads");
+  revalidatePath("/leads");
 }

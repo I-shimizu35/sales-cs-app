@@ -20,6 +20,7 @@ import {
   Search,
   BookOpen,
   BarChart3,
+  Target,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase";
 import { UserRole } from "@/lib/types";
@@ -45,6 +46,7 @@ const PRIMARY_NAV_ITEMS = [
 const REFERENCE_NAV_ITEMS = [
   { href: "/analytics", label: "分析", icon: BarChart3 },
   { href: "/knowledge", label: "ナレッジベース", icon: BookOpen },
+  { href: "/leads", label: "リード一覧", icon: Target },
   { href: "/reports", label: "生成履歴", icon: History },
 ];
 

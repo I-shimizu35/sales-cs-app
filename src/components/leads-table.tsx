@@ -9,6 +9,7 @@ import { downloadCsv } from "@/lib/csv-export";
 export interface LeadsTableRow {
   id: string;
   companyId: string;
+  companyName?: string | null;
   convertedFromDealId: string | null;
   convertedFromDealTitle: string | null;
   lead_company_name: string;
@@ -28,6 +29,11 @@ export interface LeadsTableRow {
   material_request_contact_name: string | null;
   lead_source: string | null;
 }
+
+const CLIENT_COMPANY_CSV_COLUMN: { key: keyof LeadsTableRow; label: string } = {
+  key: "companyName",
+  label: "対象クライアント企業",
+};
 
 const CSV_COLUMNS: { key: keyof LeadsTableRow; label: string }[] = [
   { key: "lead_company_name", label: "企業名" },
@@ -114,14 +120,27 @@ function SaveButton({ formId, leadId }: { formId: string; leadId: string }) {
   );
 }
 
-export function LeadsTable({ rows, isClient }: { rows: LeadsTableRow[]; isClient?: boolean }) {
+export function LeadsTable({
+  rows,
+  isClient,
+  showClientCompany,
+}: {
+  rows: LeadsTableRow[];
+  isClient?: boolean;
+  showClientCompany?: boolean;
+}) {
   const [keyword, setKeyword] = useState("");
+
+  const csvColumns = useMemo(
+    () => (showClientCompany ? [CLIENT_COMPANY_CSV_COLUMN, ...CSV_COLUMNS] : CSV_COLUMNS),
+    [showClientCompany]
+  );
 
   const filteredRows = useMemo(() => {
     if (!keyword) return rows;
     const kw = keyword.toLowerCase();
     return rows.filter((row) => {
-      const haystack = [row.lead_company_name, row.approach_list_name, row.email, row.phone, row.lead_source]
+      const haystack = [row.lead_company_name, row.companyName, row.approach_list_name, row.email, row.phone, row.lead_source]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -130,8 +149,8 @@ export function LeadsTable({ rows, isClient }: { rows: LeadsTableRow[]; isClient
   }, [rows, keyword]);
 
   function handleExportCsv() {
-    const header = CSV_COLUMNS.map((c) => c.label);
-    const body = filteredRows.map((row) => CSV_COLUMNS.map((c) => String(row[c.key] ?? "")));
+    const header = csvColumns.map((c) => c.label);
+    const body = filteredRows.map((row) => csvColumns.map((c) => String(row[c.key] ?? "")));
     downloadCsv(`leads_${new Date().toISOString().slice(0, 10)}.csv`, [header, ...body]);
   }
 
@@ -166,6 +185,7 @@ export function LeadsTable({ rows, isClient }: { rows: LeadsTableRow[]; isClient
           <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500">
             <tr>
               <th className="px-2 py-2 font-medium"></th>
+              {showClientCompany && <th className="px-2 py-2 font-medium">対象クライアント企業</th>}
               <th className="px-2 py-2 font-medium">企業名</th>
               <th className="px-2 py-2 font-medium">アプローチリスト名称</th>
               <th className="px-2 py-2 font-medium">最終アプローチ結果</th>
@@ -195,6 +215,13 @@ export function LeadsTable({ rows, isClient }: { rows: LeadsTableRow[]; isClient
                     <form id={formId} className="hidden" />
                     <SaveButton formId={formId} leadId={row.id} />
                   </Cell>
+                  {showClientCompany && (
+                    <Cell>
+                      <Link href={`/companies/${row.companyId}`} className="text-brand-600 hover:underline">
+                        {row.companyName ?? "-"}
+                      </Link>
+                    </Cell>
+                  )}
                   <Cell>
                     <TextInput formId={formId} name="lead_company_name" defaultValue={row.lead_company_name} wide />
                   </Cell>
